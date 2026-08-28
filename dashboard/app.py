@@ -127,6 +127,156 @@ def load_audit_events() -> List[Dict[str, Any]]:
 
 
 # ============================================================
+# AUDIT HELPERS
+# ============================================================
+
+def get_event_count(
+    events: List[Dict[str, Any]],
+    event_type: str,
+) -> int:
+
+    return sum(
+        1
+        for event in events
+        if event.get("event_type")
+        == event_type
+    )
+
+
+def get_verified_payments(
+    events: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+
+    verified = []
+
+    for event in events:
+
+        if (
+            event.get("event_type")
+            != "PAYMENT_VERIFICATION"
+        ):
+            continue
+
+        if (
+            event.get("status")
+            != "VERIFIED"
+        ):
+            continue
+
+        details = event.get(
+            "details",
+            {},
+        )
+
+        verified.append(
+            {
+                "Timestamp":
+                    event.get(
+                        "timestamp"
+                    ),
+
+                "Payment ID":
+                    event.get(
+                        "payment_id"
+                    ),
+
+                "Order ID":
+                    details.get(
+                        "order_id"
+                    ),
+
+                "Amount":
+                    details.get(
+                        "amount"
+                    ),
+
+                "Currency":
+                    details.get(
+                        "currency"
+                    ),
+
+                "Payment Status":
+                    details.get(
+                        "payment_status"
+                    ),
+
+                "Payment Method":
+                    details.get(
+                        "payment_method"
+                    ),
+
+                "Captured":
+                    details.get(
+                        "captured"
+                    ),
+            }
+        )
+
+    return verified
+
+
+def get_webhook_events(
+    events: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+
+    webhook_events = []
+
+    for event in events:
+
+        if (
+            event.get("event_type")
+            != "RAZORPAY_WEBHOOK"
+        ):
+            continue
+
+        details = event.get(
+            "details",
+            {},
+        )
+
+        webhook_events.append(
+            {
+                "Timestamp":
+                    event.get(
+                        "timestamp"
+                    ),
+
+                "Event":
+                    event.get(
+                        "action"
+                    ),
+
+                "Event ID":
+                    details.get(
+                        "event_id"
+                    ),
+
+                "Payment ID":
+                    event.get(
+                        "payment_id"
+                    ),
+
+                "Order ID":
+                    details.get(
+                        "order_id"
+                    ),
+
+                "Payment Status":
+                    details.get(
+                        "payment_status"
+                    ),
+
+                "Status":
+                    event.get(
+                        "status"
+                    ),
+            }
+        )
+
+    return webhook_events
+
+
+# ============================================================
 # HEADER
 # ============================================================
 
@@ -249,6 +399,46 @@ except Exception as exc:
     )
 
     st.stop()
+
+
+# ============================================================
+# LOAD AUDIT DATA
+# ============================================================
+
+audit_events = load_audit_events()
+
+verified_payments = (
+    get_verified_payments(
+        audit_events
+    )
+)
+
+webhook_events = (
+    get_webhook_events(
+        audit_events
+    )
+)
+
+payment_verification_count = (
+    get_event_count(
+        audit_events,
+        "PAYMENT_VERIFICATION",
+    )
+)
+
+webhook_event_count = (
+    get_event_count(
+        audit_events,
+        "RAZORPAY_WEBHOOK",
+    )
+)
+
+webhook_processing_count = (
+    get_event_count(
+        audit_events,
+        "WEBHOOK_PROCESSING",
+    )
+)
 
 
 # ============================================================
@@ -376,12 +566,117 @@ st.divider()
 
 
 # ============================================================
+# RAZORPAY LIVE ACTIVITY
+# ============================================================
+
+st.markdown(
+    '<div class="section-title">'
+    "💳 Razorpay Live Activity"
+    "</div>",
+    unsafe_allow_html=True,
+)
+
+r1, r2, r3, r4 = st.columns(
+    4
+)
+
+with r1:
+
+    st.metric(
+        "Verified Payments",
+        len(verified_payments),
+    )
+
+with r2:
+
+    st.metric(
+        "Verification Events",
+        payment_verification_count,
+    )
+
+with r3:
+
+    st.metric(
+        "Webhook Events",
+        webhook_event_count,
+    )
+
+with r4:
+
+    st.metric(
+        "Webhook Processing",
+        webhook_processing_count,
+    )
+
+
+if source == "razorpay":
+
+    if verified_payments:
+
+        verified_df = pd.DataFrame(
+            verified_payments
+        )
+
+        st.markdown(
+            "#### Recently Verified Payments"
+        )
+
+        st.dataframe(
+            verified_df.tail(10).iloc[::-1],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    else:
+
+        st.info(
+            "No verified Razorpay payments recorded yet."
+        )
+
+
+st.divider()
+
+
+# ============================================================
+# WEBHOOK ACTIVITY
+# ============================================================
+
+st.markdown(
+    '<div class="section-title">'
+    "🔔 Razorpay Webhook Activity"
+    "</div>",
+    unsafe_allow_html=True,
+)
+
+if webhook_events:
+
+    webhook_df = pd.DataFrame(
+        webhook_events
+    )
+
+    st.dataframe(
+        webhook_df.tail(20).iloc[::-1],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+else:
+
+    st.info(
+        "No Razorpay webhook events recorded yet."
+    )
+
+
+st.divider()
+
+
+# ============================================================
 # AI EXECUTIVE SUMMARY
 # ============================================================
 
 st.markdown(
     '<div class="section-title">'
-    "🎯 AI Executive Summary"
+    "🤖 AI Executive Summary"
     "</div>",
     unsafe_allow_html=True,
 )
@@ -463,7 +758,7 @@ st.divider()
 
 st.markdown(
     '<div class="section-title">'
-    "🤖 AI Action Recommendations"
+    "🎯 AI Action Recommendations"
     "</div>",
     unsafe_allow_html=True,
 )
@@ -814,7 +1109,7 @@ st.divider()
 
 st.markdown(
     '<div class="section-title">'
-    "⚠️ Merchant Approval Queue"
+    "⏳ Merchant Approval Queue"
     "</div>",
     unsafe_allow_html=True,
 )
@@ -1052,18 +1347,50 @@ if decision_records:
             hide_index=True,
         )
 
-        st.bar_chart(
-            simulation_df.set_index(
-                "action"
-            )[
-                "expected_recovery"
-            ]
-        )
+        if "expected_recovery" in simulation_df.columns:
+
+            st.bar_chart(
+                simulation_df.set_index(
+                    "action"
+                )[
+                    "expected_recovery"
+                ]
+            )
 
 else:
 
     st.info(
         "No simulation data available."
+    )
+
+
+# ============================================================
+# VERIFIED PAYMENT DETAILS
+# ============================================================
+
+st.markdown(
+    '<div class="section-title">'
+    "✅ Verified Payment Details"
+    "</div>",
+    unsafe_allow_html=True,
+)
+
+if verified_payments:
+
+    verification_df = pd.DataFrame(
+        verified_payments
+    )
+
+    st.dataframe(
+        verification_df.tail(20).iloc[::-1],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+else:
+
+    st.info(
+        "No verified payment records found in the audit log."
     )
 
 
@@ -1078,13 +1405,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-audit_events = load_audit_events()
-
 if audit_events:
 
     audit_rows = []
 
-    for event in audit_events[-50:]:
+    for event in audit_events[-100:]:
 
         audit_rows.append(
             {
@@ -1140,10 +1465,7 @@ if audit_events:
     )
 
     st.dataframe(
-        audit_df.sort_values(
-            by="Timestamp",
-            ascending=False,
-        ),
+        audit_df.iloc[::-1],
         use_container_width=True,
         hide_index=True,
     )
@@ -1156,37 +1478,55 @@ else:
 
 
 # ============================================================
-# MERCHANTOPS AI PIPELINE
+# SYSTEM ARCHITECTURE
 # ============================================================
 
 st.divider()
 
 st.markdown(
     '<div class="section-title">'
-    "🔄 MerchantOps AI Pipeline"
+    "🔄 MerchantOps AI Architecture"
     "</div>",
     unsafe_allow_html=True,
 )
 
 st.code(
     """
-Payment Data
-     ↓
-Payment Provider
-     ↓
+Razorpay Checkout
+       ↓
+Create Order
+       ↓
+Payment
+       ↓
+Backend Signature Verification
+       ↓
+Payment Provider / Adapter
+       ↓
 Revenue Agent
-     ↓
+       ↓
 Risk Agent
-     ↓
+       ↓
 Simulation Agent
-     ↓
+       ↓
 Decision Agent
-     ↓
+       ↓
 Action Guardrails
-     ↓
+       ↓
 Audit Logging
-     ↓
-Merchant
+       ↓
+MerchantOps Dashboard
+
+Razorpay Webhook
+       ↓
+Signature Verification
+       ↓
+Idempotency Check
+       ↓
+Webhook Processor
+       ↓
+MerchantOps AI Pipeline
+       ↓
+Audit
 """,
     language="text",
 )
@@ -1202,5 +1542,5 @@ st.caption(
     "MerchantOps AI • Payment Intelligence • "
     "Revenue Recovery • Risk Analysis • "
     "Agentic Decision Automation • "
-    "Demo + Razorpay Test Mode"
+    "Razorpay Test Mode"
 )
