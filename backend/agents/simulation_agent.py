@@ -5,31 +5,36 @@ from typing import Any, Dict, List
 
 class SimulationAgent:
     """
-    Simulates possible recovery actions for failed payments.
+    Simulates possible revenue-recovery actions.
 
-    This is a deterministic business simulation layer.
-    It does not execute any payment action.
+    The agent does not execute payments.
+    It estimates outcomes so that the Decision Agent
+    can later choose a controlled action.
     """
+
+    FAILURE_BASE_PROBABILITY = {
+        "network_error": 0.70,
+        "bank_error": 0.50,
+        "authentication_failed": 0.35,
+        "insufficient_funds": 0.20,
+        "limit_exceeded": 0.25,
+    }
 
     def simulate(
         self,
         risk_candidates: List[Dict[str, Any]],
     ) -> List[Dict[str, Any]]:
-
-        results: List[Dict[str, Any]] = []
+    
+        results = []
 
         for candidate in risk_candidates:
 
             amount = float(
-                candidate.get("amount", 0)
+                candidate.get("amount", 0.0)
             )
 
             risk_score = float(
-                candidate.get("risk_score", 0)
-            )
-
-            retry_count = int(
-                candidate.get("retry_count", 0)
+                candidate.get("risk_score", 0.5)
             )
 
             risk_level = str(
@@ -37,59 +42,66 @@ class SimulationAgent:
                     "risk_level",
                     "MEDIUM",
                 )
+            ).upper()
+
+            failure_reason = str(
+                candidate.get(
+                    "failure_reason",
+                    "",
+                )
+            ).lower()
+
+            retry_count = int(
+                candidate.get(
+                    "retry_count",
+                    0,
+                )
             )
 
-            # ----------------------------------------------
-            # Estimate recovery probability.
-            # ----------------------------------------------
-
-            base_probability = 0.55 - (
-                risk_score * 0.35
+            base_probability = (
+                self.FAILURE_BASE_PROBABILITY.get(
+                    failure_reason,
+                    0.40,
+                )
             )
 
+            # Repeated retries reduce expected recovery.
             retry_penalty = min(
-                retry_count * 0.08,
-                0.24,
+                retry_count * 0.12,
+                0.36,
             )
 
-            recovery_probability = max(
+            base_probability = max(
                 0.05,
                 base_probability - retry_penalty,
             )
 
-            # ----------------------------------------------
-            # Scenario 1: Retry Now
-            # ----------------------------------------------
+            # Risk slightly reduces recovery confidence.
+            risk_adjustment = (
+                risk_score * 0.15
+            )
 
             retry_now_probability = max(
                 0.05,
-                recovery_probability,
+                base_probability - risk_adjustment,
             )
+
+            retry_later_probability = max(
+                0.03,
+                retry_now_probability * 0.75,
+            )
+
+            do_nothing_probability = 0.05
 
             retry_now_recovery = (
                 amount
                 * retry_now_probability
             )
 
-            # ----------------------------------------------
-            # Scenario 2: Retry Later
-            # ----------------------------------------------
-
-            retry_later_probability = max(
-                0.03,
-                recovery_probability * 0.75,
-            )
-
             retry_later_recovery = (
                 amount
                 * retry_later_probability
             )
-
-            # ----------------------------------------------
-            # Scenario 3: Do Nothing
-            # ----------------------------------------------
-
-            do_nothing_probability = 0.08
 
             do_nothing_recovery = (
                 amount
@@ -99,6 +111,10 @@ class SimulationAgent:
             scenarios = [
                 {
                     "action": "RETRY_NOW",
+                    "probability": round(
+                        retry_now_probability,
+                        3,
+                    ),
                     "expected_recovery": round(
                         retry_now_recovery,
                         2,
@@ -110,6 +126,10 @@ class SimulationAgent:
                 },
                 {
                     "action": "RETRY_LATER",
+                    "probability": round(
+                        retry_later_probability,
+                        3,
+                    ),
                     "expected_recovery": round(
                         retry_later_recovery,
                         2,
@@ -117,13 +137,14 @@ class SimulationAgent:
                     "risk": round(
                         max(
                             risk_score - 0.05,
-                            0,
+                            0.0,
                         ),
                         3,
                     ),
                 },
                 {
                     "action": "DO_NOTHING",
+                    "probability": do_nothing_probability,
                     "expected_recovery": round(
                         do_nothing_recovery,
                         2,
@@ -132,49 +153,82 @@ class SimulationAgent:
                 },
             ]
 
-            # ----------------------------------------------
-            # Safety rule:
-            # High-risk candidates should not automatically
-            # select a retry even if expected recovery is high.
-            # ----------------------------------------------
+            # ------------------------------------------------
+            # Choose the strategy using business policy.
+            # ------------------------------------------------
 
             if risk_level == "HIGH":
 
-                best = max(
-                    scenarios,
-                    key=lambda item: (
-                        item["expected_recovery"]
-                        if item["action"] == "DO_NOTHING"
-                        else 0
-                    ),
+                recommended_action = (
+                    "DO_NOTHING"
                 )
 
-                best["action"] = "DO_NOTHING"
+            elif risk_level == "MEDIUM":
+
+                if (
+                    retry_now_probability >= 0.45
+                    and retry_count == 0
+                ):
+                    recommended_action = (
+                        "RETRY_NOW"
+                    )
+
+                elif (
+                    retry_later_probability >= 0.25
+                ):
+                    recommended_action = (
+                        "RETRY_LATER"
+                    )
+
+                else:
+                    recommended_action = (
+                        "DO_NOTHING"
+                    )
 
             else:
 
-                best = max(
-                    scenarios,
-                    key=lambda item:
-                        item["expected_recovery"]
-                        - (
-                            item["risk"]
-                            * amount
-                        ),
-                )
+                if retry_now_probability >= 0.30:
+
+                    recommended_action = (
+                        "RETRY_NOW"
+                    )
+
+                elif (
+                    retry_later_probability >= 0.20
+                ):
+
+                    recommended_action = (
+                        "RETRY_LATER"
+                    )
+
+                else:
+
+                    recommended_action = (
+                        "DO_NOTHING"
+                    )
+
+            selected = next(
+                scenario
+                for scenario in scenarios
+                if scenario["action"]
+                == recommended_action
+            )
 
             result = dict(candidate)
 
             result.update(
                 {
-                    "simulation_scenarios":
-                        scenarios,
+                    "simulation_scenarios": scenarios,
                     "recommended_action":
-                        best["action"],
+                        recommended_action,
                     "expected_recovery":
-                        best["expected_recovery"],
+                        selected[
+                            "expected_recovery"
+                        ],
                     "simulation_risk":
-                        best["risk"],
+                        selected["risk"],
+                    "recovery_probability":
+                        selected["probability"],
                 }
             )
 
