@@ -8,30 +8,33 @@ from backend.agents.revenue_agent import RevenueAgent
 from backend.agents.risk_agent import RiskAgent
 from backend.agents.simulation_agent import SimulationAgent
 from backend.agents.decision_agent import DecisionAgent
+from backend.tools.action_tools import evaluate_action
+from backend.database.audit import AuditLogger
 
 
 class MerchantOpsOrchestrator:
     """
-    Coordinates the MerchantOps AI agent pipeline.
+    Coordinates the complete MerchantOps AI workflow.
 
-    Pipeline:
-
-        Payment Data
-            ↓
-        Revenue Agent
-            ↓
-        Risk Agent
-            ↓
-        Simulation Agent
-            ↓
-        Decision Agent
-            ↓
-        Final Merchant Intelligence
+    Payment Data
+        ↓
+    Revenue Agent
+        ↓
+    Risk Agent
+        ↓
+    Simulation Agent
+        ↓
+    Decision Agent
+        ↓
+    Action Policy
+        ↓
+    Audit Logger
     """
 
     def __init__(
         self,
         payments_df: pd.DataFrame,
+        audit_logger: AuditLogger | None = None,
     ) -> None:
 
         self.payments_df = payments_df
@@ -50,14 +53,19 @@ class MerchantOpsOrchestrator:
             DecisionAgent()
         )
 
+        self.audit_logger = (
+            audit_logger
+            or AuditLogger()
+        )
+
     def run(self) -> Dict[str, Any]:
         """
         Execute the complete MerchantOps pipeline.
         """
 
-        # ---------------------------------------------
-        # Stage 1: Revenue analysis
-        # ---------------------------------------------
+        # --------------------------------------------------
+        # 1. Revenue analysis
+        # --------------------------------------------------
 
         revenue_result = (
             self.revenue_agent.analyze()
@@ -69,9 +77,9 @@ class MerchantOpsOrchestrator:
             ]
         )
 
-        # ---------------------------------------------
-        # Stage 2: Risk evaluation
-        # ---------------------------------------------
+        # --------------------------------------------------
+        # 2. Risk assessment
+        # --------------------------------------------------
 
         risk_result = (
             self.risk_agent.evaluate(
@@ -79,9 +87,9 @@ class MerchantOpsOrchestrator:
             )
         )
 
-        # ---------------------------------------------
-        # Stage 3: Action simulation
-        # ---------------------------------------------
+        # --------------------------------------------------
+        # 3. Simulation
+        # --------------------------------------------------
 
         simulation_result = (
             self.simulation_agent.simulate(
@@ -89,9 +97,9 @@ class MerchantOpsOrchestrator:
             )
         )
 
-        # ---------------------------------------------
-        # Stage 4: Final decision
-        # ---------------------------------------------
+        # --------------------------------------------------
+        # 4. Final decisions
+        # --------------------------------------------------
 
         decision_result = (
             self.decision_agent.decide(
@@ -99,18 +107,64 @@ class MerchantOpsOrchestrator:
             )
         )
 
-        # ---------------------------------------------
-        # Aggregate action counts
-        # ---------------------------------------------
+        # --------------------------------------------------
+        # 5. Apply action policy + audit
+        # --------------------------------------------------
 
-        action_counts = {
+        governed_decisions = []
+
+        for decision in decision_result:
+
+            policy_result = evaluate_action(
+                decision
+            )
+
+            self.audit_logger.log_decision(
+                decision
+            )
+
+            self.audit_logger.log_policy_result(
+                decision,
+                policy_result,
+            )
+
+            governed_decision = dict(
+                decision
+            )
+
+            governed_decision[
+                "policy"
+            ] = policy_result
+
+            governed_decisions.append(
+                governed_decision
+            )
+
+        # --------------------------------------------------
+        # 6. Action summary
+        # --------------------------------------------------
+
+        final_action_counts = {
             "RETRY_NOW": 0,
             "RETRY_LATER": 0,
             "REVIEW": 0,
             "DO_NOTHING": 0,
         }
 
-        for decision in decision_result:
+        execution_modes = {
+            "MERCHANT_APPROVAL": 0,
+            "SCHEDULED_TEST_ACTION": 0,
+            "BLOCKED": 0,
+            "NO_ACTION": 0,
+        }
+
+        approval_required = 0
+
+        allowed_actions = 0
+
+        blocked_actions = 0
+
+        for decision in governed_decisions:
 
             action = str(
                 decision.get(
@@ -119,15 +173,53 @@ class MerchantOpsOrchestrator:
                 )
             ).upper()
 
-            if action in action_counts:
-                action_counts[action] += 1
+            if action in final_action_counts:
 
-        # ---------------------------------------------
-        # Build final response
-        # ---------------------------------------------
+                final_action_counts[
+                    action
+                ] += 1
+
+            policy = decision[
+                "policy"
+            ]
+
+            mode = policy.get(
+                "execution_mode",
+                "BLOCKED",
+            )
+
+            if mode in execution_modes:
+
+                execution_modes[
+                    mode
+                ] += 1
+
+            if policy.get(
+                "approval_required",
+                False,
+            ):
+
+                approval_required += 1
+
+            if policy.get(
+                "allowed",
+                False,
+            ):
+
+                allowed_actions += 1
+
+            else:
+
+                blocked_actions += 1
+
+        # --------------------------------------------------
+        # 7. Final response
+        # --------------------------------------------------
 
         return {
+
             "operations": {
+
                 "total_payments":
                     revenue_result[
                         "total_payments"
@@ -155,11 +247,40 @@ class MerchantOpsOrchestrator:
             },
 
             "recovery_candidates":
-                len(recovery_candidates),
+                len(
+                    recovery_candidates
+                ),
 
-            "action_counts":
-                action_counts,
+            "risk_candidates":
+                len(
+                    risk_result
+                ),
+
+            "simulated_candidates":
+                len(
+                    simulation_result
+                ),
 
             "decisions":
-                decision_result,
+                len(
+                    governed_decisions
+                ),
+
+            "action_counts":
+                final_action_counts,
+
+            "execution_modes":
+                execution_modes,
+
+            "approval_required":
+                approval_required,
+
+            "allowed_actions":
+                allowed_actions,
+
+            "blocked_actions":
+                blocked_actions,
+
+            "decision_records":
+                governed_decisions,
         }

@@ -1,11 +1,16 @@
+from pathlib import Path
+
 import pandas as pd
 
 from backend.agents.orchestrator import (
     MerchantOpsOrchestrator,
 )
+from backend.database.audit import AuditLogger
 
 
-def test_orchestrator_pipeline():
+def test_orchestrator_pipeline(
+    tmp_path: Path,
+):
 
     df = pd.DataFrame(
         [
@@ -17,7 +22,8 @@ def test_orchestrator_pipeline():
                 "payment_method": "UPI",
                 "status": "failed",
                 "failure_reason": "network_error",
-                "created_at": "2026-08-01T10:00:00",
+                "created_at":
+                    "2026-08-01T10:00:00",
                 "retry_count": 0,
             },
             {
@@ -28,14 +34,22 @@ def test_orchestrator_pipeline():
                 "payment_method": "CARD",
                 "status": "captured",
                 "failure_reason": "",
-                "created_at": "2026-08-01T11:00:00",
+                "created_at":
+                    "2026-08-01T11:00:00",
                 "retry_count": 0,
             },
         ]
     )
 
-    orchestrator = MerchantOpsOrchestrator(
-        df
+    audit_logger = AuditLogger(
+        tmp_path / "audit.jsonl"
+    )
+
+    orchestrator = (
+        MerchantOpsOrchestrator(
+            df,
+            audit_logger=audit_logger,
+        )
     )
 
     result = orchestrator.run()
@@ -63,10 +77,37 @@ def test_orchestrator_pipeline():
         == 1
     )
 
+    assert (
+        result["risk_candidates"]
+        == 1
+    )
+
+    assert (
+        result["simulated_candidates"]
+        == 1
+    )
+
+    assert (
+        result["decisions"]
+        == 1
+    )
+
     assert sum(
         result["action_counts"].values()
     ) == 1
 
-    assert len(
-        result["decisions"]
-    ) == 1
+    events = (
+        audit_logger.read_events()
+    )
+
+    assert len(events) == 2
+
+    assert (
+        events[0]["event_type"]
+        == "AI_DECISION"
+    )
+
+    assert (
+        events[1]["event_type"]
+        == "ACTION_POLICY"
+    )
