@@ -87,7 +87,7 @@ class DecisionAgent:
 
                 final_action = "RETRY_LATER"
 
-                approval_required = True
+                approval_required = False
 
                 reason = (
                     "A delayed retry provides a "
