@@ -13,7 +13,6 @@ from fastapi import (
 )
 
 from fastapi.middleware.cors import CORSMiddleware
-
 from pydantic import BaseModel
 
 from backend.agents.orchestrator import (
@@ -54,9 +53,9 @@ app = FastAPI(
     description=(
         "AI-powered merchant intelligence, revenue recovery, "
         "risk analysis, simulation, decision automation, "
-        "payment verification, and governed operations."
+        "payment verification, and governed payment operations."
     ),
-    version="1.5.0",
+    version="1.6.0",
 )
 
 
@@ -86,8 +85,7 @@ class PaymentVerificationRequest(
     BaseModel
 ):
     """
-    Request body returned by Razorpay Checkout
-    and sent to the backend for signature verification.
+    Razorpay Checkout verification payload.
     """
 
     razorpay_order_id: str
@@ -137,7 +135,6 @@ def load_payment_data(
         "csv",
         "razorpay",
     }:
-
         raise ValueError(
             "Invalid payment source. "
             "Use 'csv' or 'razorpay'."
@@ -160,7 +157,7 @@ def empty_analysis(
     source: str,
 ) -> Dict[str, Any]:
     """
-    Return a valid empty MerchantOps analysis.
+    Return an empty MerchantOps analysis.
     """
 
     return {
@@ -175,11 +172,8 @@ def empty_analysis(
         },
 
         "recovery_candidates": 0,
-
         "risk_candidates": 0,
-
         "simulated_candidates": 0,
-
         "decisions": 0,
 
         "action_counts": {
@@ -197,9 +191,7 @@ def empty_analysis(
         },
 
         "approval_required": 0,
-
         "allowed_actions": 0,
-
         "blocked_actions": 0,
 
         "decision_records": [],
@@ -241,9 +233,7 @@ def run_merchantops(
             orchestrator.run()
         )
 
-        result["source"] = (
-            source
-        )
+        result["source"] = source
 
         return result
 
@@ -385,10 +375,9 @@ def verify_razorpay_payment(
     """
     Verify the Razorpay Checkout payment signature.
 
-    This endpoint must receive:
-        razorpay_order_id
-        razorpay_payment_id
-        razorpay_signature
+    After successful verification, fetch the payment
+    directly from Razorpay and return trusted payment
+    information.
     """
 
     try:
@@ -396,6 +385,10 @@ def verify_razorpay_payment(
         client = (
             RazorpayClient()
         )
+
+        # ----------------------------------------------------
+        # 1. Verify Checkout signature
+        # ----------------------------------------------------
 
         verified = (
             client.verify_payment_signature(
@@ -414,7 +407,7 @@ def verify_razorpay_payment(
         )
 
         # ----------------------------------------------------
-        # Invalid signature
+        # 2. Reject invalid signature
         # ----------------------------------------------------
 
         if not verified:
@@ -469,7 +462,73 @@ def verify_razorpay_payment(
             }
 
         # ----------------------------------------------------
-        # Valid signature
+        # 3. Signature verified
+        #
+        # Fetch the payment directly from Razorpay.
+        # ----------------------------------------------------
+
+        payment = (
+            client.fetch_payment(
+                payload.razorpay_payment_id
+            )
+        )
+
+        # ----------------------------------------------------
+        # 4. Extract payment values
+        # ----------------------------------------------------
+
+        amount_paise = (
+            payment.get("amount")
+        )
+
+        amount_rupees = (
+            float(amount_paise) / 100
+            if amount_paise is not None
+            else None
+        )
+
+        payment_id = (
+            payment.get("id")
+        )
+
+        order_id = (
+            payment.get("order_id")
+        )
+
+        payment_status = (
+            payment.get("status")
+        )
+
+        currency = (
+            payment.get("currency")
+        )
+
+        payment_method = (
+            payment.get("method")
+        )
+
+        email = (
+            payment.get("email")
+        )
+
+        contact = (
+            payment.get("contact")
+        )
+
+        created_at = (
+            payment.get("created_at")
+        )
+
+        captured = (
+            payment.get("captured")
+        )
+
+        amount_refunded = (
+            payment.get("amount_refunded")
+        )
+
+        # ----------------------------------------------------
+        # 5. Audit successful verification
         # ----------------------------------------------------
 
         audit_logger.log_event(
@@ -478,7 +537,7 @@ def verify_razorpay_payment(
             ),
 
             payment_id=(
-                payload.razorpay_payment_id
+                payment_id
             ),
 
             action=(
@@ -491,9 +550,46 @@ def verify_razorpay_payment(
 
             details={
                 "order_id":
-                    payload.razorpay_order_id,
+                    order_id,
+
+                "amount":
+                    amount_rupees,
+
+                "currency":
+                    currency,
+
+                "payment_status":
+                    payment_status,
+
+                "payment_method":
+                    payment_method,
+
+                "captured":
+                    captured,
+
+                "amount_refunded":
+                    (
+                        float(
+                            amount_refunded
+                        ) / 100
+                        if amount_refunded is not None
+                        else None
+                    ),
+
+                "email":
+                    email,
+
+                "contact":
+                    contact,
+
+                "created_at":
+                    created_at,
             },
         )
+
+        # ----------------------------------------------------
+        # 6. Return trusted payment information
+        # ----------------------------------------------------
 
         return {
             "verified":
@@ -502,11 +598,46 @@ def verify_razorpay_payment(
             "status":
                 "verified",
 
-            "payment_id":
-                payload.razorpay_payment_id,
+            "payment": {
+                "payment_id":
+                    payment_id,
 
-            "order_id":
-                payload.razorpay_order_id,
+                "order_id":
+                    order_id,
+
+                "amount":
+                    amount_rupees,
+
+                "currency":
+                    currency,
+
+                "payment_status":
+                    payment_status,
+
+                "payment_method":
+                    payment_method,
+
+                "captured":
+                    captured,
+
+                "amount_refunded":
+                    (
+                        float(
+                            amount_refunded
+                        ) / 100
+                        if amount_refunded is not None
+                        else None
+                    ),
+
+                "email":
+                    email,
+
+                "contact":
+                    contact,
+
+                "created_at":
+                    created_at,
+            },
         }
 
     except Exception as exc:
@@ -580,8 +711,8 @@ def payments(
             status == "captured"
         )
 
-        total_payments = len(
-            df
+        total_payments = (
+            len(df)
         )
 
         failed_payments = int(
@@ -656,7 +787,7 @@ def analyze(
     ),
 ) -> Dict[str, Any]:
     """
-    Run complete MerchantOps AI analysis.
+    Run the complete MerchantOps AI analysis.
     """
 
     try:
@@ -803,7 +934,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 4. Parse JSON AFTER verification
+        # 4. Parse JSON
         # ----------------------------------------------------
 
         try:
@@ -827,8 +958,8 @@ async def razorpay_webhook(
         # 5. Extract event information
         # ----------------------------------------------------
 
-        event_id = event.get(
-            "id"
+        event_id = (
+            event.get("id")
         )
 
         event_name = str(
@@ -838,9 +969,11 @@ async def razorpay_webhook(
             )
         )
 
-        payload_data = event.get(
-            "payload",
-            {}
+        payload_data = (
+            event.get(
+                "payload",
+                {}
+            )
         )
 
         payment_entity = (
@@ -945,7 +1078,7 @@ async def razorpay_webhook(
         )
 
         # ----------------------------------------------------
-        # 8. Classify event
+        # 8. Event classification
         # ----------------------------------------------------
 
         if event_name == (
@@ -997,7 +1130,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 10. Record event AFTER successful processing
+        # 10. Record event only after successful processing
         # ----------------------------------------------------
 
         if event_id:

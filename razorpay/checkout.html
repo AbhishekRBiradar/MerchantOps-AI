@@ -92,14 +92,9 @@
         // ========================================================
 
         /*
-         * IMPORTANT:
-         *
-         * Checkout is served locally from port 5500.
-         * Therefore we use local FastAPI for order creation
-         * and payment verification.
-         *
-         * zrok is NOT needed for these browser requests.
-         * zrok is used for Razorpay -> webhook traffic.
+         * Checkout is served locally on port 5500.
+         * Order creation and payment verification are handled
+         * by the local FastAPI backend on port 8000.
          */
 
         const API_BASE_URL =
@@ -109,13 +104,11 @@
         /*
          * Razorpay TEST Key ID.
          *
-         * This is safe to use in frontend code.
+         * This is a public frontend key.
          *
-         * NEVER put:
-         * - Razorpay Key Secret
-         * - Razorpay Webhook Secret
-         *
-         * in this file.
+         * NEVER put the following here:
+         * - RAZORPAY_KEY_SECRET
+         * - RAZORPAY_WEBHOOK_SECRET
          */
 
         const RAZORPAY_KEY_ID =
@@ -209,8 +202,13 @@
 
                 throw new Error(
                     "Verification API failed.\n"
+                    + "HTTP Status: "
+                    + verificationResponse.status
+                    + "\n"
                     + JSON.stringify(
-                        result
+                        result,
+                        null,
+                        2
                     )
                 );
 
@@ -287,7 +285,7 @@
 
 
                     // ------------------------------------------------
-                    // Create Razorpay order
+                    // Create Razorpay Order
                     // ------------------------------------------------
 
                     const orderUrl =
@@ -300,7 +298,7 @@
 
 
                     console.log(
-                        "Order URL:",
+                        "Creating Razorpay order:",
                         orderUrl
                     );
 
@@ -370,13 +368,13 @@
 
 
                     // =================================================
-                    // RAZORPAY CHECKOUT
+                    // RAZORPAY CHECKOUT OPTIONS
                     // =================================================
 
                     const options = {
 
                         // ------------------------------------------------
-                        // TEST KEY ID
+                        // TEST KEY
                         // ------------------------------------------------
 
                         key:
@@ -384,7 +382,7 @@
 
 
                         // ------------------------------------------------
-                        // ORDER INFORMATION
+                        // ORDER DETAILS
                         // ------------------------------------------------
 
                         amount:
@@ -413,7 +411,7 @@
                             ) {
 
                                 console.log(
-                                    "Razorpay success:",
+                                    "Razorpay success response:",
                                     response
                                 );
 
@@ -421,13 +419,11 @@
                                 try {
 
                                     /*
-                                     * IMPORTANT:
+                                     * Do not trust only the client-side
+                                     * success message.
                                      *
-                                     * Do NOT trust the browser success
-                                     * callback by itself.
-                                     *
-                                     * Send the response to the backend
-                                     * for signature verification.
+                                     * Send all Razorpay response values
+                                     * to the backend for verification.
                                      */
 
                                     const verification =
@@ -436,19 +432,76 @@
                                         );
 
 
+                                    // ------------------------------------
+                                    // New backend response structure
+                                    // ------------------------------------
+
+                                    const payment =
+                                        verification.payment;
+
+
+                                    if (
+                                        !payment
+                                    ) {
+
+                                        throw new Error(
+                                            "Backend did not return "
+                                            + "verified payment details."
+                                        );
+
+                                    }
+
+
                                     setStatus(
                                         "✅ Payment verified successfully!\n\n"
                                         + "Payment ID: "
-                                        + verification
-                                            .payment_id
+                                        + (
+                                            payment.payment_id
+                                            || "Unknown"
+                                        )
                                         + "\n"
                                         + "Order ID: "
-                                        + verification
-                                            .order_id
+                                        + (
+                                            payment.order_id
+                                            || "Unknown"
+                                        )
+                                        + "\n"
+                                        + "Amount: ₹"
+                                        + (
+                                            payment.amount
+                                            ?? "Unknown"
+                                        )
+                                        + "\n"
+                                        + "Currency: "
+                                        + (
+                                            payment.currency
+                                            || "Unknown"
+                                        )
+                                        + "\n"
+                                        + "Method: "
+                                        + (
+                                            payment.payment_method
+                                            || "Unknown"
+                                        )
+                                        + "\n"
+                                        + "Payment Status: "
+                                        + (
+                                            payment.payment_status
+                                            || "Unknown"
+                                        )
+                                        + "\n"
+                                        + "Captured: "
+                                        + (
+                                            payment.captured
+                                            ? "Yes"
+                                            : "No"
+                                        )
                                         + "\n"
                                         + "Backend Status: "
-                                        + verification
-                                            .status
+                                        + (
+                                            verification.status
+                                            || "verified"
+                                        )
                                     );
 
                                 }
@@ -467,8 +520,7 @@
                                         "⚠️ Payment completed, "
                                         + "but backend verification failed.\n\n"
                                         + (
-                                            verificationError
-                                                .message
+                                            verificationError.message
                                             || String(
                                                 verificationError
                                             )
@@ -524,9 +576,9 @@
                     };
 
 
-                    // ------------------------------------------------
+                    // =================================================
                     // CREATE RAZORPAY INSTANCE
-                    // ------------------------------------------------
+                    // =================================================
 
                     const razorpay =
                         new Razorpay(
@@ -534,9 +586,9 @@
                         );
 
 
-                    // ------------------------------------------------
+                    // =================================================
                     // PAYMENT FAILURE EVENT
-                    // ------------------------------------------------
+                    // =================================================
 
                     razorpay.on(
                         "payment.failed",
@@ -592,9 +644,9 @@
                     );
 
 
-                    // ------------------------------------------------
+                    // =================================================
                     // OPEN RAZORPAY CHECKOUT
-                    // ------------------------------------------------
+                    // =================================================
 
                     razorpay.open();
 
