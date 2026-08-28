@@ -14,11 +14,16 @@ import streamlit as st
 # ============================================================
 
 API_URL = "http://127.0.0.1:8000"
-AUDIT_FILE = Path("data/audit_log.jsonl")
+
+AUDIT_FILE = Path(
+    "data/audit_log.jsonl"
+)
+
+DEFAULT_SOURCE = "csv"
 
 
 # ============================================================
-# PAGE CONFIG
+# PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
@@ -53,25 +58,7 @@ st.markdown(
             font-size: 28px;
             font-weight: 700;
             margin-top: 10px;
-        }
-
-        .decision-card {
-            border: 1px solid rgba(128,128,128,0.25);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 10px;
-        }
-
-        .risk-high {
-            font-weight: 700;
-        }
-
-        .risk-medium {
-            font-weight: 700;
-        }
-
-        .risk-low {
-            font-weight: 700;
+            margin-bottom: 12px;
         }
 
         div[data-testid="stMetric"] {
@@ -85,7 +72,7 @@ st.markdown(
 
 
 # ============================================================
-# API HELPERS
+# API HELPER
 # ============================================================
 
 @st.cache_data(ttl=10)
@@ -102,6 +89,10 @@ def fetch_api(
 
     return response.json()
 
+
+# ============================================================
+# AUDIT LOADER
+# ============================================================
 
 def load_audit_events() -> List[Dict[str, Any]]:
 
@@ -123,10 +114,13 @@ def load_audit_events() -> List[Dict[str, Any]]:
                 continue
 
             try:
+
                 events.append(
                     json.loads(line)
                 )
+
             except json.JSONDecodeError:
+
                 continue
 
     return events
@@ -143,9 +137,9 @@ st.markdown(
 
 st.markdown(
     '<div class="subtitle">'
-    'Autonomous merchant intelligence, revenue recovery '
-    'and governed AI decision automation'
-    '</div>',
+    "Autonomous merchant intelligence, revenue recovery "
+    "and governed AI decision automation"
+    "</div>",
     unsafe_allow_html=True,
 )
 
@@ -153,21 +147,55 @@ st.divider()
 
 
 # ============================================================
-# SIDEBAR
+# SIDEBAR CONTROLS
 # ============================================================
 
 with st.sidebar:
 
     st.header("⚙️ Controls")
 
+    # --------------------------------------------------------
+    # PAYMENT DATA SOURCE
+    # --------------------------------------------------------
+
+    source_label = st.radio(
+        "Payment Data Source",
+        [
+            "Demo Dataset",
+            "Razorpay Test Mode",
+        ],
+        index=(
+            0
+            if DEFAULT_SOURCE == "csv"
+            else 1
+        ),
+    )
+
+    source = (
+        "razorpay"
+        if source_label
+        == "Razorpay Test Mode"
+        else "csv"
+    )
+
+    # --------------------------------------------------------
+    # REFRESH
+    # --------------------------------------------------------
+
     if st.button(
         "🔄 Refresh Data",
         use_container_width=True,
     ):
+
         st.cache_data.clear()
+
         st.rerun()
 
     st.divider()
+
+    # --------------------------------------------------------
+    # BACKEND INFORMATION
+    # --------------------------------------------------------
 
     st.caption(
         "Backend"
@@ -179,26 +207,30 @@ with st.sidebar:
     )
 
     st.caption(
+        f"Active source: {source_label}"
+    )
+
+    st.caption(
         "Mode: Test / Development"
     )
 
 
 # ============================================================
-# LOAD DATA
+# LOAD API DATA
 # ============================================================
 
 try:
 
     payments_data = fetch_api(
-        "/payments"
+        f"/payments?source={source}"
     )
 
     analysis_data = fetch_api(
-        "/analyze"
+        f"/analyze?source={source}"
     )
 
     decisions_data = fetch_api(
-        "/decisions"
+        f"/decisions?source={source}"
     )
 
 except Exception as exc:
@@ -240,14 +272,19 @@ with status_col2:
     )
 
 
+st.info(
+    f"Active payment source: **{source_label}**"
+)
+
+
 # ============================================================
-# KPI OVERVIEW
+# OPERATIONS OVERVIEW
 # ============================================================
 
 st.markdown(
     '<div class="section-title">'
-    '📊 Merchant Operations Overview'
-    '</div>',
+    "📊 Merchant Operations Overview"
+    "</div>",
     unsafe_allow_html=True,
 )
 
@@ -295,33 +332,40 @@ success_rate = (
 )
 
 
-c1, c2, c3, c4, c5 = st.columns(5)
+c1, c2, c3, c4, c5 = st.columns(
+    5
+)
 
 with c1:
+
     st.metric(
         "Total Payments",
         f"{total_payments:,}",
     )
 
 with c2:
+
     st.metric(
         "Failed Payments",
         f"{failed_payments:,}",
     )
 
 with c3:
+
     st.metric(
         "Success Rate",
         f"{success_rate:.1f}%",
     )
 
 with c4:
+
     st.metric(
         "Failure Rate",
         f"{failure_rate:.1f}%",
     )
 
 with c5:
+
     st.metric(
         "Revenue at Risk",
         f"₹{revenue_at_risk:,.0f}",
@@ -332,13 +376,13 @@ st.divider()
 
 
 # ============================================================
-# EXECUTIVE SUMMARY
+# AI EXECUTIVE SUMMARY
 # ============================================================
 
 st.markdown(
     '<div class="section-title">'
-    '🎯 AI Executive Summary'
-    '</div>',
+    "🎯 AI Executive Summary"
+    "</div>",
     unsafe_allow_html=True,
 )
 
@@ -347,31 +391,39 @@ operations = analysis_data.get(
     {},
 )
 
-recovery_candidates = analysis_data.get(
-    "recovery_candidates",
-    0,
+recovery_candidates = int(
+    analysis_data.get(
+        "recovery_candidates",
+        0,
+    )
 )
 
-final_decisions = analysis_data.get(
+final_decisions = int(
+    analysis_data.get(
+        "decisions",
+        0,
+    )
+)
+
+decision_records = decisions_data.get(
     "decisions",
-    0,
+    []
 )
 
-expected_recoveries = sum(
+expected_recovery = sum(
     float(
         decision.get(
             "expected_recovery",
             0,
         )
     )
-    for decision in decisions_data.get(
-        "decisions",
-        [],
-    )
+    for decision in decision_records
 )
 
 
-s1, s2, s3, s4 = st.columns(4)
+s1, s2, s3, s4 = st.columns(
+    4
+)
 
 with s1:
 
@@ -391,7 +443,7 @@ with s3:
 
     st.metric(
         "Expected Recovery",
-        f"₹{expected_recoveries:,.0f}",
+        f"₹{expected_recovery:,.0f}",
     )
 
 with s4:
@@ -402,21 +454,53 @@ with s4:
     )
 
 
+st.divider()
+
+
 # ============================================================
-# ACTION BREAKDOWN
+# AI ACTION RECOMMENDATIONS
 # ============================================================
 
 st.markdown(
     '<div class="section-title">'
-    '🤖 AI Action Recommendations'
-    '</div>',
+    "🤖 AI Action Recommendations"
+    "</div>",
     unsafe_allow_html=True,
 )
 
 action_counts = decisions_data.get(
     "action_counts",
-    {},
+    {}
 )
+
+retry_now = int(
+    action_counts.get(
+        "RETRY_NOW",
+        0,
+    )
+)
+
+retry_later = int(
+    action_counts.get(
+        "RETRY_LATER",
+        0,
+    )
+)
+
+review = int(
+    action_counts.get(
+        "REVIEW",
+        0,
+    )
+)
+
+do_nothing = int(
+    action_counts.get(
+        "DO_NOTHING",
+        0,
+    )
+)
+
 
 actions_df = pd.DataFrame(
     {
@@ -427,25 +511,14 @@ actions_df = pd.DataFrame(
             "DO_NOTHING",
         ],
         "Count": [
-            action_counts.get(
-                "RETRY_NOW",
-                0,
-            ),
-            action_counts.get(
-                "RETRY_LATER",
-                0,
-            ),
-            action_counts.get(
-                "REVIEW",
-                0,
-            ),
-            action_counts.get(
-                "DO_NOTHING",
-                0,
-            ),
+            retry_now,
+            retry_later,
+            review,
+            do_nothing,
         ],
     }
 )
+
 
 chart_col, metric_col = st.columns(
     [2, 1]
@@ -463,34 +536,22 @@ with metric_col:
 
     st.metric(
         "Retry Now",
-        action_counts.get(
-            "RETRY_NOW",
-            0,
-        ),
+        retry_now,
     )
 
     st.metric(
         "Retry Later",
-        action_counts.get(
-            "RETRY_LATER",
-            0,
-        ),
+        retry_later,
     )
 
     st.metric(
         "Review",
-        action_counts.get(
-            "REVIEW",
-            0,
-        ),
+        review,
     )
 
     st.metric(
         "Do Nothing",
-        action_counts.get(
-            "DO_NOTHING",
-            0,
-        ),
+        do_nothing,
     )
 
 
@@ -498,19 +559,19 @@ st.divider()
 
 
 # ============================================================
-# GOVERNANCE
+# AI GOVERNANCE
 # ============================================================
 
 st.markdown(
     '<div class="section-title">'
-    '🛡️ AI Governance & Safety'
-    '</div>',
+    "🛡️ AI Governance & Safety"
+    "</div>",
     unsafe_allow_html=True,
 )
 
 execution_modes = decisions_data.get(
     "execution_modes",
-    {},
+    {}
 )
 
 approval_required = int(
@@ -534,55 +595,70 @@ blocked_actions = int(
     )
 )
 
-g1, g2, g3, g4 = st.columns(4)
+scheduled_actions = int(
+    execution_modes.get(
+        "SCHEDULED_TEST_ACTION",
+        0,
+    )
+)
+
+
+g1, g2, g3, g4 = st.columns(
+    4
+)
 
 with g1:
+
     st.metric(
         "Merchant Approval",
         approval_required,
     )
 
 with g2:
+
     st.metric(
         "Allowed Actions",
         allowed_actions,
     )
 
 with g3:
+
     st.metric(
         "Blocked Actions",
         blocked_actions,
     )
 
 with g4:
+
     st.metric(
         "Scheduled Test Actions",
-        execution_modes.get(
-            "SCHEDULED_TEST_ACTION",
-            0,
-        ),
+        scheduled_actions,
     )
 
 
+st.divider()
+
+
 # ============================================================
-# DECISION DATA
+# DECISION EXPLORER
 # ============================================================
 
-decisions = decisions_data.get(
-    "decisions",
-    [],
+st.markdown(
+    '<div class="section-title">'
+    "🔎 Decision Explorer"
+    "</div>",
+    unsafe_allow_html=True,
 )
 
-
-if decisions:
+if decision_records:
 
     decision_rows = []
 
-    for decision in decisions:
+    for decision in decision_records:
 
         policy = decision.get(
             "policy",
-            {},
+            {}
         )
 
         decision_rows.append(
@@ -653,111 +729,155 @@ if decisions:
         decision_rows
     )
 
+    f1, f2, f3 = st.columns(
+        3
+    )
+
+    with f1:
+
+        selected_action = st.selectbox(
+            "Action",
+            [
+                "ALL",
+                "RETRY_NOW",
+                "RETRY_LATER",
+                "REVIEW",
+                "DO_NOTHING",
+            ],
+        )
+
+    with f2:
+
+        selected_risk = st.selectbox(
+            "Risk",
+            [
+                "ALL",
+                "LOW",
+                "MEDIUM",
+                "HIGH",
+            ],
+        )
+
+    with f3:
+
+        max_rows = st.slider(
+            "Rows",
+            min_value=10,
+            max_value=max(
+                10,
+                len(decisions_df),
+            ),
+            value=min(
+                25,
+                len(decisions_df),
+            ),
+            step=5,
+        )
+
+    filtered_df = decisions_df.copy()
+
+    if selected_action != "ALL":
+
+        filtered_df = filtered_df[
+            filtered_df["Decision"]
+            == selected_action
+        ]
+
+    if selected_risk != "ALL":
+
+        filtered_df = filtered_df[
+            filtered_df["Risk"]
+            == selected_risk
+        ]
+
+    st.dataframe(
+        filtered_df.head(
+            max_rows
+        ),
+        use_container_width=True,
+        hide_index=True,
+    )
+
 else:
-
-    decisions_df = pd.DataFrame()
-
-
-# ============================================================
-# FILTERS
-# ============================================================
-
-st.markdown(
-    '<div class="section-title">'
-    '🔎 Decision Explorer'
-    '</div>',
-    unsafe_allow_html=True,
-)
-
-f1, f2, f3 = st.columns(3)
-
-with f1:
-
-    selected_action = st.selectbox(
-        "Action",
-        [
-            "ALL",
-            "RETRY_NOW",
-            "RETRY_LATER",
-            "REVIEW",
-            "DO_NOTHING",
-        ],
-    )
-
-with f2:
-
-    selected_risk = st.selectbox(
-        "Risk",
-        [
-            "ALL",
-            "LOW",
-            "MEDIUM",
-            "HIGH",
-        ],
-    )
-
-with f3:
-
-    max_rows = st.slider(
-        "Rows",
-        min_value=10,
-        max_value=103,
-        value=25,
-        step=5,
-    )
-
-
-filtered_df = decisions_df.copy()
-
-if selected_action != "ALL":
-
-    filtered_df = filtered_df[
-        filtered_df[
-            "Decision"
-        ] == selected_action
-    ]
-
-if selected_risk != "ALL":
-
-    filtered_df = filtered_df[
-        filtered_df[
-            "Risk"
-        ] == selected_risk
-    ]
-
-
-st.dataframe(
-    filtered_df.head(max_rows),
-    use_container_width=True,
-    hide_index=True,
-)
-
-
-# ============================================================
-# APPROVAL QUEUE
-# ============================================================
-
-st.markdown(
-    '<div class="section-title">'
-    '⚠️ Merchant Approval Queue'
-    '</div>',
-    unsafe_allow_html=True,
-)
-
-approval_df = filtered_df[
-    filtered_df[
-        "Approval"
-    ] == "YES"
-].copy()
-
-
-if approval_df.empty:
 
     st.info(
-        "No approval actions currently require merchant review."
+        "No AI decisions available for this payment source."
     )
 
-else:
+
+st.divider()
+
+
+# ============================================================
+# MERCHANT APPROVAL QUEUE
+# ============================================================
+
+st.markdown(
+    '<div class="section-title">'
+    "⚠️ Merchant Approval Queue"
+    "</div>",
+    unsafe_allow_html=True,
+)
+
+approval_rows = []
+
+for decision in decision_records:
+
+    if decision.get(
+        "approval_required",
+        False,
+    ):
+
+        approval_rows.append(
+            {
+                "Payment ID":
+                    decision.get(
+                        "payment_id"
+                    ),
+
+                "Order ID":
+                    decision.get(
+                        "order_id"
+                    ),
+
+                "Amount":
+                    decision.get(
+                        "amount"
+                    ),
+
+                "Risk":
+                    decision.get(
+                        "risk_level"
+                    ),
+
+                "Risk Score":
+                    decision.get(
+                        "risk_score"
+                    ),
+
+                "Expected Recovery":
+                    decision.get(
+                        "expected_recovery"
+                    ),
+
+                "Recommended Action":
+                    decision.get(
+                        "final_action"
+                    ),
+
+                "Reason":
+                    decision.get(
+                        "decision_reason"
+                    ),
+            }
+        )
+
+
+if approval_rows:
+
+    approval_df = pd.DataFrame(
+        approval_rows
+    )
 
     st.warning(
         f"{len(approval_df)} decision(s) require merchant approval."
@@ -769,6 +889,12 @@ else:
         hide_index=True,
     )
 
+else:
+
+    st.info(
+        "No merchant approvals currently required."
+    )
+
 
 # ============================================================
 # DECISION DETAILS
@@ -776,17 +902,12 @@ else:
 
 st.markdown(
     '<div class="section-title">'
-    '🧠 Decision Details & Explainability'
-    '</div>',
+    "🧠 Decision Details & Explainability"
+    "</div>",
     unsafe_allow_html=True,
 )
 
-all_decisions = decisions_data.get(
-    "decisions",
-    [],
-)
-
-if all_decisions:
+if decision_records:
 
     payment_options = [
         str(
@@ -794,17 +915,18 @@ if all_decisions:
                 "payment_id"
             )
         )
-        for decision in all_decisions
+        for decision in decision_records
     ]
 
     selected_payment = st.selectbox(
         "Select a payment",
         payment_options,
+        key="decision_payment",
     )
 
     selected = next(
         decision
-        for decision in all_decisions
+        for decision in decision_records
         if str(
             decision.get(
                 "payment_id"
@@ -815,30 +937,36 @@ if all_decisions:
 
     policy = selected.get(
         "policy",
-        {},
+        {}
     )
 
-    d1, d2, d3, d4 = st.columns(4)
+    d1, d2, d3, d4 = st.columns(
+        4
+    )
 
     with d1:
+
         st.metric(
             "Amount",
             f"₹{float(selected.get('amount', 0)):,.0f}",
         )
 
     with d2:
+
         st.metric(
             "Risk Score",
             f"{float(selected.get('risk_score', 0)):.2f}",
         )
 
     with d3:
+
         st.metric(
             "Expected Recovery",
             f"₹{float(selected.get('expected_recovery', 0)):,.0f}",
         )
 
     with d4:
+
         st.metric(
             "Confidence",
             f"{float(selected.get('decision_confidence', 0)) * 100:.1f}%",
@@ -857,36 +985,40 @@ if all_decisions:
     )
 
     st.write(
-        f"**Failure reason:** {selected.get('failure_reason')}"
+        f"**Payment Method:** {selected.get('payment_method')}"
     )
 
     st.write(
-        f"**Final decision:** {selected.get('final_action')}"
+        f"**Failure Reason:** {selected.get('failure_reason')}"
     )
 
     st.write(
-        f"**Decision reason:** {selected.get('decision_reason')}"
+        f"**Final Decision:** {selected.get('final_action')}"
     )
 
     st.write(
-        f"**Policy mode:** {policy.get('execution_mode')}"
+        f"**Decision Reason:** {selected.get('decision_reason')}"
+    )
+
+    st.write(
+        f"**Policy Mode:** {policy.get('execution_mode')}"
     )
 
 
 # ============================================================
-# SIMULATION DETAILS
+# SIMULATION ANALYSIS
 # ============================================================
 
 st.markdown(
     '<div class="section-title">'
-    '🧪 Simulation Analysis'
-    '</div>',
+    "🧪 Simulation Analysis"
+    "</div>",
     unsafe_allow_html=True,
 )
 
-if all_decisions:
+if decision_records:
 
-    selected_sim = st.selectbox(
+    selected_simulation = st.selectbox(
         "Select payment for simulation",
         payment_options,
         key="simulation_payment",
@@ -894,18 +1026,18 @@ if all_decisions:
 
     simulation_decision = next(
         decision
-        for decision in all_decisions
+        for decision in decision_records
         if str(
             decision.get(
                 "payment_id"
             )
         )
-        == selected_sim
+        == selected_simulation
     )
 
     scenarios = simulation_decision.get(
         "simulation_scenarios",
-        [],
+        []
     )
 
     simulation_df = pd.DataFrame(
@@ -923,8 +1055,16 @@ if all_decisions:
         st.bar_chart(
             simulation_df.set_index(
                 "action"
-            )["expected_recovery"]
+            )[
+                "expected_recovery"
+            ]
         )
+
+else:
+
+    st.info(
+        "No simulation data available."
+    )
 
 
 # ============================================================
@@ -933,8 +1073,8 @@ if all_decisions:
 
 st.markdown(
     '<div class="section-title">'
-    '📋 Audit Trail'
-    '</div>',
+    "📋 Audit Trail"
+    "</div>",
     unsafe_allow_html=True,
 )
 
@@ -1016,21 +1156,23 @@ else:
 
 
 # ============================================================
-# PIPELINE
+# MERCHANTOPS AI PIPELINE
 # ============================================================
 
 st.divider()
 
 st.markdown(
     '<div class="section-title">'
-    '🔄 MerchantOps AI Pipeline'
-    '</div>',
+    "🔄 MerchantOps AI Pipeline"
+    "</div>",
     unsafe_allow_html=True,
 )
 
 st.code(
     """
 Payment Data
+     ↓
+Payment Provider
      ↓
 Revenue Agent
      ↓
@@ -1059,5 +1201,6 @@ st.divider()
 st.caption(
     "MerchantOps AI • Payment Intelligence • "
     "Revenue Recovery • Risk Analysis • "
-    "Agentic Decision Automation • Test Environment"
+    "Agentic Decision Automation • "
+    "Demo + Razorpay Test Mode"
 )
