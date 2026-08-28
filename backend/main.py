@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Dict
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 
 from backend.agents.orchestrator import MerchantOpsOrchestrator
+from backend.tools.payment_provider import PaymentProvider
 
 
 # ============================================================
@@ -16,64 +16,93 @@ from backend.agents.orchestrator import MerchantOpsOrchestrator
 app = FastAPI(
     title="MerchantOps AI",
     description=(
-        "AI-powered merchant intelligence, "
-        "revenue recovery, risk analysis, "
-        "simulation, and decision automation platform."
+        "AI-powered merchant intelligence, revenue recovery, "
+        "risk analysis, simulation, and decision automation."
     ),
-    version="1.0.0",
+    version="1.1.0",
 )
 
 
 # ============================================================
-# DATA CONFIGURATION
+# PAYMENT PROVIDER
 # ============================================================
 
-PAYMENTS_FILE = Path(
-    "data/payments.csv"
-)
+def load_payment_data(
+    source: str,
+) -> pd.DataFrame:
 
+    source = source.lower().strip()
 
-# ============================================================
-# DATA LOADER
-# ============================================================
-
-def load_payments() -> pd.DataFrame:
-    """
-    Load merchant payment events.
-    """
-
-    if not PAYMENTS_FILE.exists():
-
-        raise FileNotFoundError(
-            f"Payment dataset not found: "
-            f"{PAYMENTS_FILE}"
+    if source not in {"csv", "razorpay"}:
+        raise ValueError(
+            "Invalid source. Use 'csv' or 'razorpay'."
         )
 
-    return pd.read_csv(
-        PAYMENTS_FILE
+    provider = PaymentProvider(
+        mode=source
     )
+
+    return provider.load()
 
 
 # ============================================================
 # MERCHANTOPS PIPELINE
 # ============================================================
 
-def run_merchantops() -> Dict[str, Any]:
-    """
-    Run the complete MerchantOps AI pipeline.
-    """
+def run_merchantops(
+    source: str,
+) -> Dict[str, Any]:
 
     try:
 
-        payments_df = load_payments()
-
-        orchestrator = (
-            MerchantOpsOrchestrator(
-                payments_df
-            )
+        payments_df = load_payment_data(
+            source
         )
 
-        return orchestrator.run()
+        # Razorpay Test Mode may contain no payments.
+        # Return a useful empty result instead of crashing.
+        if payments_df.empty:
+
+            return {
+                "source": source,
+                "operations": {
+                    "total_payments": 0,
+                    "failed_payments": 0,
+                    "captured_payments": 0,
+                    "failure_rate": 0.0,
+                    "revenue_at_risk": 0.0,
+                },
+                "recovery_candidates": 0,
+                "risk_candidates": 0,
+                "simulated_candidates": 0,
+                "decisions": 0,
+                "action_counts": {
+                    "RETRY_NOW": 0,
+                    "RETRY_LATER": 0,
+                    "REVIEW": 0,
+                    "DO_NOTHING": 0,
+                },
+                "execution_modes": {
+                    "MERCHANT_APPROVAL": 0,
+                    "SCHEDULED_TEST_ACTION": 0,
+                    "BLOCKED": 0,
+                    "NO_ACTION": 0,
+                },
+                "approval_required": 0,
+                "allowed_actions": 0,
+                "blocked_actions": 0,
+                "decision_records": [],
+            }
+
+        orchestrator = MerchantOpsOrchestrator(
+            payments_df
+        )
+
+        result = orchestrator.run()
+
+        result["source"] = source
+
+        return result
 
     except Exception as exc:
 
@@ -83,14 +112,11 @@ def run_merchantops() -> Dict[str, Any]:
 
 
 # ============================================================
-# ROOT ENDPOINT
+# ROOT
 # ============================================================
 
 @app.get("/")
 def root() -> Dict[str, str]:
-    """
-    API root endpoint.
-    """
 
     return {
         "service": "MerchantOps AI",
@@ -100,14 +126,11 @@ def root() -> Dict[str, str]:
 
 
 # ============================================================
-# HEALTH ENDPOINT
+# HEALTH
 # ============================================================
 
 @app.get("/health")
 def health() -> Dict[str, str]:
-    """
-    Health check endpoint.
-    """
 
     return {
         "status": "healthy",
@@ -116,36 +139,50 @@ def health() -> Dict[str, str]:
 
 
 # ============================================================
-# PAYMENTS ENDPOINT
+# PAYMENTS
 # ============================================================
 
 @app.get("/payments")
-def payments() -> Dict[str, Any]:
-    """
-    Return payment statistics.
-    """
+def payments(
+    source: str = Query(
+        default="csv",
+        description="Payment source: csv or razorpay",
+    ),
+) -> Dict[str, Any]:
 
     try:
 
-        df = load_payments()
+        df = load_payment_data(
+            source
+        )
 
-        total_payments = len(df)
+        if df.empty:
 
-        failed_mask = (
+            return {
+                "source": source,
+                "total_payments": 0,
+                "failed_payments": 0,
+                "captured_payments": 0,
+                "failure_rate": 0.0,
+                "revenue_at_risk": 0.0,
+            }
+
+        status = (
             df["status"]
             .astype(str)
             .str.lower()
             .str.strip()
-            == "failed"
+        )
+
+        failed_mask = (
+            status == "failed"
         )
 
         captured_mask = (
-            df["status"]
-            .astype(str)
-            .str.lower()
-            .str.strip()
-            == "captured"
+            status == "captured"
         )
+
+        total_payments = len(df)
 
         failed_payments = int(
             failed_mask.sum()
@@ -171,21 +208,18 @@ def payments() -> Dict[str, Any]:
         )
 
         return {
+            "source": source,
             "total_payments":
                 total_payments,
-
             "failed_payments":
                 failed_payments,
-
             "captured_payments":
                 captured_payments,
-
             "failure_rate":
                 round(
                     failure_rate,
                     2,
                 ),
-
             "revenue_at_risk":
                 round(
                     revenue_at_risk,
@@ -202,18 +236,22 @@ def payments() -> Dict[str, Any]:
 
 
 # ============================================================
-# ANALYZE ENDPOINT
+# ANALYZE
 # ============================================================
 
 @app.get("/analyze")
-def analyze() -> Dict[str, Any]:
-    """
-    Run complete MerchantOps AI analysis.
-    """
+def analyze(
+    source: str = Query(
+        default="csv",
+        description="Payment source: csv or razorpay",
+    ),
+) -> Dict[str, Any]:
 
     try:
 
-        return run_merchantops()
+        return run_merchantops(
+            source
+        )
 
     except Exception as exc:
 
@@ -224,20 +262,27 @@ def analyze() -> Dict[str, Any]:
 
 
 # ============================================================
-# DECISIONS ENDPOINT
+# DECISIONS
 # ============================================================
 
 @app.get("/decisions")
-def decisions() -> Dict[str, Any]:
-    """
-    Return final AI decisions.
-    """
+def decisions(
+    source: str = Query(
+        default="csv",
+        description="Payment source: csv or razorpay",
+    ),
+) -> Dict[str, Any]:
 
     try:
 
-        result = run_merchantops()
+        result = run_merchantops(
+            source
+        )
 
         return {
+            "source":
+                result["source"],
+
             "count":
                 result["decisions"],
 
@@ -245,29 +290,19 @@ def decisions() -> Dict[str, Any]:
                 result["action_counts"],
 
             "execution_modes":
-                result[
-                    "execution_modes"
-                ],
+                result["execution_modes"],
 
             "approval_required":
-                result[
-                    "approval_required"
-                ],
+                result["approval_required"],
 
             "allowed_actions":
-                result[
-                    "allowed_actions"
-                ],
+                result["allowed_actions"],
 
             "blocked_actions":
-                result[
-                    "blocked_actions"
-                ],
+                result["blocked_actions"],
 
             "decisions":
-                result[
-                    "decision_records"
-                ],
+                result["decision_records"],
         }
 
     except Exception as exc:
