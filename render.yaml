@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: merchantops-ai-api
+    runtime: python
+    plan: free
+
+    buildCommand: pip install -r requirements.txt
+
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+
+    healthCheckPath: /health
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.10.10"
+
+      - key: RAZORPAY_KEY_ID
+        sync: false
+
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+
+      - key: API_URL
+        sync: false
+
+      - key: CORS_ORIGINS
+        sync: false

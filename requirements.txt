@@ -1,9 +1,10 @@
 pandas
 numpy
 fastapi
-uvicorn
+uvicorn[standard]
 scikit-learn
 xgboost
 python-dotenv
 requests
 streamlit
+pytest
