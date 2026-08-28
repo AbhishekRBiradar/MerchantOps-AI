@@ -4,19 +4,45 @@ import json
 from typing import Any, Dict
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query, Request
+
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Query,
+    Request,
+)
+
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.agents.orchestrator import MerchantOpsOrchestrator
-from backend.database.audit import AuditLogger
-from backend.database.webhook_events import WebhookEventStore
-from backend.tools.payment_provider import PaymentProvider
+from pydantic import BaseModel
+
+from backend.agents.orchestrator import (
+    MerchantOpsOrchestrator,
+)
+
+from backend.database.audit import (
+    AuditLogger,
+)
+
+from backend.database.webhook_events import (
+    WebhookEventStore,
+)
+
+from backend.tools.payment_provider import (
+    PaymentProvider,
+)
+
 from backend.tools.webhook_processor import (
     RazorpayWebhookProcessor,
 )
 
-from razorpay.client import RazorpayClient
-from razorpay.webhook import RazorpayWebhookVerifier
+from razorpay.client import (
+    RazorpayClient,
+)
+
+from razorpay.webhook import (
+    RazorpayWebhookVerifier,
+)
 
 
 # ============================================================
@@ -28,9 +54,9 @@ app = FastAPI(
     description=(
         "AI-powered merchant intelligence, revenue recovery, "
         "risk analysis, simulation, decision automation, "
-        "and governed payment operations."
+        "payment verification, and governed operations."
     ),
-    version="1.4.0",
+    version="1.5.0",
 )
 
 
@@ -53,16 +79,37 @@ app.add_middleware(
 
 
 # ============================================================
+# REQUEST MODELS
+# ============================================================
+
+class PaymentVerificationRequest(
+    BaseModel
+):
+    """
+    Request body returned by Razorpay Checkout
+    and sent to the backend for signature verification.
+    """
+
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+# ============================================================
 # CONFIGURATION
 # ============================================================
 
 audit_logger = AuditLogger()
 
-webhook_processor = RazorpayWebhookProcessor(
-    audit_logger=audit_logger
+webhook_processor = (
+    RazorpayWebhookProcessor(
+        audit_logger=audit_logger
+    )
 )
 
-webhook_event_store = WebhookEventStore()
+webhook_event_store = (
+    WebhookEventStore()
+)
 
 
 # ============================================================
@@ -90,13 +137,16 @@ def load_payment_data(
         "csv",
         "razorpay",
     }:
+
         raise ValueError(
             "Invalid payment source. "
             "Use 'csv' or 'razorpay'."
         )
 
-    provider = PaymentProvider(
-        mode=source
+    provider = (
+        PaymentProvider(
+            mode=source
+        )
     )
 
     return provider.load()
@@ -169,8 +219,10 @@ def run_merchantops(
 
     try:
 
-        payments_df = load_payment_data(
-            source
+        payments_df = (
+            load_payment_data(
+                source
+            )
         )
 
         if payments_df.empty:
@@ -185,9 +237,13 @@ def run_merchantops(
             )
         )
 
-        result = orchestrator.run()
+        result = (
+            orchestrator.run()
+        )
 
-        result["source"] = source
+        result["source"] = (
+            source
+        )
 
         return result
 
@@ -209,10 +265,20 @@ def root() -> Dict[str, str]:
     """
 
     return {
-        "service": "MerchantOps AI",
-        "status": "running",
-        "docs": "/docs",
-        "webhook": "/webhooks/razorpay",
+        "service":
+            "MerchantOps AI",
+
+        "status":
+            "running",
+
+        "docs":
+            "/docs",
+
+        "webhook":
+            "/webhooks/razorpay",
+
+        "payment_verification":
+            "/razorpay/verify-payment",
     }
 
 
@@ -227,8 +293,11 @@ def health() -> Dict[str, str]:
     """
 
     return {
-        "status": "healthy",
-        "service": "MerchantOps AI",
+        "status":
+            "healthy",
+
+        "service":
+            "MerchantOps AI",
     }
 
 
@@ -263,14 +332,18 @@ def create_razorpay_order(
                 ),
             )
 
-        client = RazorpayClient()
+        client = (
+            RazorpayClient()
+        )
 
-        order = client.create_order(
-            amount=amount,
-            currency="INR",
-            receipt=(
-                "merchantops_test_order"
-            ),
+        order = (
+            client.create_order(
+                amount=amount,
+                currency="INR",
+                receipt=(
+                    "merchantops_test_order"
+                ),
+            )
         )
 
         return {
@@ -300,6 +373,151 @@ def create_razorpay_order(
 
 
 # ============================================================
+# RAZORPAY PAYMENT VERIFICATION
+# ============================================================
+
+@app.post(
+    "/razorpay/verify-payment"
+)
+def verify_razorpay_payment(
+    payload: PaymentVerificationRequest,
+) -> Dict[str, Any]:
+    """
+    Verify the Razorpay Checkout payment signature.
+
+    This endpoint must receive:
+        razorpay_order_id
+        razorpay_payment_id
+        razorpay_signature
+    """
+
+    try:
+
+        client = (
+            RazorpayClient()
+        )
+
+        verified = (
+            client.verify_payment_signature(
+                order_id=(
+                    payload.razorpay_order_id
+                ),
+
+                payment_id=(
+                    payload.razorpay_payment_id
+                ),
+
+                signature=(
+                    payload.razorpay_signature
+                ),
+            )
+        )
+
+        # ----------------------------------------------------
+        # Invalid signature
+        # ----------------------------------------------------
+
+        if not verified:
+
+            audit_logger.log_event(
+                event_type=(
+                    "PAYMENT_VERIFICATION"
+                ),
+
+                payment_id=(
+                    payload.razorpay_payment_id
+                ),
+
+                action=(
+                    "VERIFY_PAYMENT"
+                ),
+
+                status=(
+                    "REJECTED"
+                ),
+
+                details={
+                    "order_id":
+                        payload.razorpay_order_id,
+
+                    "reason":
+                        (
+                            "Invalid Razorpay "
+                            "payment signature."
+                        ),
+                },
+            )
+
+            return {
+                "verified":
+                    False,
+
+                "status":
+                    "rejected",
+
+                "payment_id":
+                    payload.razorpay_payment_id,
+
+                "order_id":
+                    payload.razorpay_order_id,
+
+                "reason":
+                    (
+                        "Invalid Razorpay "
+                        "payment signature."
+                    ),
+            }
+
+        # ----------------------------------------------------
+        # Valid signature
+        # ----------------------------------------------------
+
+        audit_logger.log_event(
+            event_type=(
+                "PAYMENT_VERIFICATION"
+            ),
+
+            payment_id=(
+                payload.razorpay_payment_id
+            ),
+
+            action=(
+                "VERIFY_PAYMENT"
+            ),
+
+            status=(
+                "VERIFIED"
+            ),
+
+            details={
+                "order_id":
+                    payload.razorpay_order_id,
+            },
+        )
+
+        return {
+            "verified":
+                True,
+
+            "status":
+                "verified",
+
+            "payment_id":
+                payload.razorpay_payment_id,
+
+            "order_id":
+                payload.razorpay_order_id,
+        }
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(exc),
+        ) from exc
+
+
+# ============================================================
 # PAYMENTS
 # ============================================================
 
@@ -319,19 +537,32 @@ def payments(
 
     try:
 
-        df = load_payment_data(
-            source
+        df = (
+            load_payment_data(
+                source
+            )
         )
 
         if df.empty:
 
             return {
-                "source": source,
-                "total_payments": 0,
-                "failed_payments": 0,
-                "captured_payments": 0,
-                "failure_rate": 0.0,
-                "revenue_at_risk": 0.0,
+                "source":
+                    source,
+
+                "total_payments":
+                    0,
+
+                "failed_payments":
+                    0,
+
+                "captured_payments":
+                    0,
+
+                "failure_rate":
+                    0.0,
+
+                "revenue_at_risk":
+                    0.0,
             }
 
         status = (
@@ -349,7 +580,9 @@ def payments(
             status == "captured"
         )
 
-        total_payments = len(df)
+        total_payments = len(
+            df
+        )
 
         failed_payments = int(
             failed_mask.sum()
@@ -460,8 +693,10 @@ def decisions(
 
     try:
 
-        result = run_merchantops(
-            source
+        result = (
+            run_merchantops(
+                source
+            )
         )
 
         return {
@@ -521,14 +756,18 @@ async def razorpay_webhook(
         # 1. Read exact raw request body
         # ----------------------------------------------------
 
-        payload = await request.body()
+        payload = (
+            await request.body()
+        )
 
         # ----------------------------------------------------
         # 2. Read Razorpay signature
         # ----------------------------------------------------
 
-        signature = request.headers.get(
-            "X-Razorpay-Signature"
+        signature = (
+            request.headers.get(
+                "X-Razorpay-Signature"
+            )
         )
 
         if not signature:
@@ -542,7 +781,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 3. Verify signature
+        # 3. Verify webhook signature
         # ----------------------------------------------------
 
         verifier = (
@@ -635,7 +874,7 @@ async def razorpay_webhook(
         )
 
         # ----------------------------------------------------
-        # 6. Check idempotency
+        # 6. Idempotency check
         # ----------------------------------------------------
 
         if event_id:
@@ -658,7 +897,10 @@ async def razorpay_webhook(
                         payment_id,
 
                     "message":
-                        "Webhook already processed.",
+                        (
+                            "Webhook already "
+                            "processed."
+                        ),
                 }
 
         # ----------------------------------------------------
@@ -706,19 +948,25 @@ async def razorpay_webhook(
         # 8. Classify event
         # ----------------------------------------------------
 
-        if event_name == "payment.failed":
+        if event_name == (
+            "payment.failed"
+        ):
 
             processing_status = (
                 "PAYMENT_FAILED_RECORDED"
             )
 
-        elif event_name == "payment.captured":
+        elif event_name == (
+            "payment.captured"
+        ):
 
             processing_status = (
                 "PAYMENT_CAPTURED_RECORDED"
             )
 
-        elif event_name == "payment.authorized":
+        elif event_name == (
+            "payment.authorized"
+        ):
 
             processing_status = (
                 "PAYMENT_AUTHORIZED_RECORDED"
@@ -749,10 +997,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 10. Record webhook event AFTER processing
-        #
-        # Recording after successful processing means a
-        # failed processing attempt can be retried safely.
+        # 10. Record event AFTER successful processing
         # ----------------------------------------------------
 
         if event_id:

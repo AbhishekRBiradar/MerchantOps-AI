@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
+
 from typing import Any, Dict, Optional
 
 import requests
@@ -74,6 +77,10 @@ class RazorpayClient:
 
         return response.json()
 
+    # ========================================================
+    # RAZORPAY ORDER
+    # ========================================================
+
     def create_order(
         self,
         amount: int,
@@ -99,6 +106,10 @@ class RazorpayClient:
             "/orders",
             json=payload,
         )
+
+    # ========================================================
+    # RAZORPAY PAYMENTS
+    # ========================================================
 
     def fetch_payments(
         self,
@@ -144,4 +155,48 @@ class RazorpayClient:
         return self._request(
             "GET",
             f"/orders/{order_id}",
+        )
+
+    # ========================================================
+    # PAYMENT SIGNATURE VERIFICATION
+    # ========================================================
+
+    def verify_payment_signature(
+        self,
+        order_id: str,
+        payment_id: str,
+        signature: str,
+    ) -> bool:
+        """
+        Verify the Razorpay Checkout payment signature.
+
+        The signature is generated using:
+
+            order_id + "|" + payment_id
+
+        and the Razorpay Key Secret.
+        """
+
+        if not order_id:
+            return False
+
+        if not payment_id:
+            return False
+
+        if not signature:
+            return False
+
+        message = (
+            f"{order_id}|{payment_id}"
+        ).encode("utf-8")
+
+        expected_signature = hmac.new(
+            self.key_secret.encode("utf-8"),
+            message,
+            hashlib.sha256,
+        ).hexdigest()
+
+        return hmac.compare_digest(
+            expected_signature,
+            signature,
         )

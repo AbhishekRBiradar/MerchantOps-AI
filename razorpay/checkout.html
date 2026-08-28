@@ -93,29 +93,37 @@
 
         /*
          * IMPORTANT:
-         * This is your CURRENT zrok public URL.
          *
-         * If you restart zrok and receive a different hostname,
-         * change ONLY this value.
+         * Checkout is served locally from port 5500.
+         * Therefore we use local FastAPI for order creation
+         * and payment verification.
+         *
+         * zrok is NOT needed for these browser requests.
+         * zrok is used for Razorpay -> webhook traffic.
          */
+
         const API_BASE_URL =
-        "http://127.0.0.1:8000";
+            "http://127.0.0.1:8000";
 
 
         /*
          * Razorpay TEST Key ID.
          *
-         * This is a public key and can be used in frontend code.
+         * This is safe to use in frontend code.
          *
-         * NEVER put your Razorpay Key Secret here.
-         * NEVER put your Webhook Secret here.
+         * NEVER put:
+         * - Razorpay Key Secret
+         * - Razorpay Webhook Secret
+         *
+         * in this file.
          */
+
         const RAZORPAY_KEY_ID =
             "rzp_test_TV7feaaiM2EsjP";
 
 
         // ========================================================
-        // ELEMENTS
+        // PAGE ELEMENTS
         // ========================================================
 
         const statusElement =
@@ -144,6 +152,88 @@
 
 
         // ========================================================
+        // VERIFY PAYMENT WITH BACKEND
+        // ========================================================
+
+        async function verifyPayment(
+            paymentResponse
+        ) {
+
+            setStatus(
+                "Payment successful.\n"
+                + "Verifying payment with MerchantOps..."
+            );
+
+
+            const verificationResponse =
+                await fetch(
+                    API_BASE_URL
+                    + "/razorpay/verify-payment",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+
+                            "Accept":
+                                "application/json"
+                        },
+
+                        body: JSON.stringify({
+
+                            razorpay_order_id:
+                                paymentResponse
+                                    .razorpay_order_id,
+
+                            razorpay_payment_id:
+                                paymentResponse
+                                    .razorpay_payment_id,
+
+                            razorpay_signature:
+                                paymentResponse
+                                    .razorpay_signature
+
+                        })
+                    }
+                );
+
+
+            const result =
+                await verificationResponse.json();
+
+
+            if (
+                !verificationResponse.ok
+            ) {
+
+                throw new Error(
+                    "Verification API failed.\n"
+                    + JSON.stringify(
+                        result
+                    )
+                );
+
+            }
+
+
+            if (
+                result.verified !== true
+            ) {
+
+                throw new Error(
+                    "Payment signature verification failed."
+                );
+
+            }
+
+
+            return result;
+
+        }
+
+
+        // ========================================================
         // CREATE PAYMENT
         // ========================================================
 
@@ -159,7 +249,7 @@
 
 
                     // ------------------------------------------------
-                    // Read amount from input
+                    // Read amount
                     // ------------------------------------------------
 
                     const amount =
@@ -188,11 +278,6 @@
 
                     // ------------------------------------------------
                     // Convert rupees to paise
-                    // Example:
-                    //
-                    // ₹500
-                    // ↓
-                    // 50000 paise
                     // ------------------------------------------------
 
                     const amountInPaise =
@@ -202,10 +287,7 @@
 
 
                     // ------------------------------------------------
-                    // Create Razorpay Order
-                    //
-                    // IMPORTANT:
-                    // This is a POST request.
+                    // Create Razorpay order
                     // ------------------------------------------------
 
                     const orderUrl =
@@ -218,7 +300,7 @@
 
 
                     console.log(
-                        "Creating order:",
+                        "Order URL:",
                         orderUrl
                     );
 
@@ -238,7 +320,7 @@
 
 
                     // ------------------------------------------------
-                    // Check response
+                    // Check order response
                     // ------------------------------------------------
 
                     if (
@@ -258,10 +340,6 @@
 
                     }
 
-
-                    // ------------------------------------------------
-                    // Read order response
-                    // ------------------------------------------------
 
                     const order =
                         await orderResponse.json();
@@ -292,13 +370,13 @@
 
 
                     // =================================================
-                    // RAZORPAY CHECKOUT OPTIONS
+                    // RAZORPAY CHECKOUT
                     // =================================================
 
                     const options = {
 
                         // ------------------------------------------------
-                        // Test Key ID
+                        // TEST KEY ID
                         // ------------------------------------------------
 
                         key:
@@ -306,24 +384,14 @@
 
 
                         // ------------------------------------------------
-                        // Amount from Razorpay Order
+                        // ORDER INFORMATION
                         // ------------------------------------------------
 
                         amount:
                             order.amount,
 
-
-                        // ------------------------------------------------
-                        // Currency
-                        // ------------------------------------------------
-
                         currency:
                             order.currency,
-
-
-                        // ------------------------------------------------
-                        // Merchant information
-                        // ------------------------------------------------
 
                         name:
                             "MerchantOps AI",
@@ -331,45 +399,83 @@
                         description:
                             "MerchantOps AI Test Payment",
 
-
-                        // ------------------------------------------------
-                        // IMPORTANT:
-                        // Use the server-created order ID
-                        // ------------------------------------------------
-
                         order_id:
                             order.order_id,
 
 
                         // ------------------------------------------------
-                        // SUCCESS
+                        // SUCCESS HANDLER
                         // ------------------------------------------------
 
                         handler:
-                            function (
+                            async function (
                                 response
                             ) {
 
                                 console.log(
-                                    "Payment successful:",
+                                    "Razorpay success:",
                                     response
                                 );
 
 
-                                setStatus(
-                                    "✅ Payment successful!\n\n"
-                                    + "Payment ID: "
-                                    + response
-                                        .razorpay_payment_id
-                                    + "\n"
-                                    + "Order ID: "
-                                    + response
-                                        .razorpay_order_id
-                                    + "\n\n"
-                                    + "MerchantOps can now "
-                                    + "retrieve this payment "
-                                    + "from Razorpay."
-                                );
+                                try {
+
+                                    /*
+                                     * IMPORTANT:
+                                     *
+                                     * Do NOT trust the browser success
+                                     * callback by itself.
+                                     *
+                                     * Send the response to the backend
+                                     * for signature verification.
+                                     */
+
+                                    const verification =
+                                        await verifyPayment(
+                                            response
+                                        );
+
+
+                                    setStatus(
+                                        "✅ Payment verified successfully!\n\n"
+                                        + "Payment ID: "
+                                        + verification
+                                            .payment_id
+                                        + "\n"
+                                        + "Order ID: "
+                                        + verification
+                                            .order_id
+                                        + "\n"
+                                        + "Backend Status: "
+                                        + verification
+                                            .status
+                                    );
+
+                                }
+
+                                catch (
+                                    verificationError
+                                ) {
+
+                                    console.error(
+                                        "Verification error:",
+                                        verificationError
+                                    );
+
+
+                                    setStatus(
+                                        "⚠️ Payment completed, "
+                                        + "but backend verification failed.\n\n"
+                                        + (
+                                            verificationError
+                                                .message
+                                            || String(
+                                                verificationError
+                                            )
+                                        )
+                                    );
+
+                                }
 
                             },
 
@@ -418,9 +524,9 @@
                     };
 
 
-                    // =================================================
-                    // INITIALIZE RAZORPAY
-                    // =================================================
+                    // ------------------------------------------------
+                    // CREATE RAZORPAY INSTANCE
+                    // ------------------------------------------------
 
                     const razorpay =
                         new Razorpay(
@@ -428,9 +534,9 @@
                         );
 
 
-                    // =================================================
-                    // FAILURE EVENT
-                    // =================================================
+                    // ------------------------------------------------
+                    // PAYMENT FAILURE EVENT
+                    // ------------------------------------------------
 
                     razorpay.on(
                         "payment.failed",
@@ -486,9 +592,9 @@
                     );
 
 
-                    // =================================================
-                    // OPEN CHECKOUT
-                    // =================================================
+                    // ------------------------------------------------
+                    // OPEN RAZORPAY CHECKOUT
+                    // ------------------------------------------------
 
                     razorpay.open();
 
