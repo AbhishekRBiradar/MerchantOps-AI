@@ -6,3 +6,4 @@ __pycache__/
 .env.*
 secrets/
 *.log
+data/audit_log.jsonl
