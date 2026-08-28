@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from typing import Any, Dict, Optional
 
@@ -72,6 +74,32 @@ class RazorpayClient:
 
         return response.json()
 
+    def create_order(
+        self,
+        amount: int,
+        currency: str = "INR",
+        receipt: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create a Razorpay order.
+
+        amount must be supplied in the smallest currency unit.
+        Example: ₹500 = 50000 paise.
+        """
+
+        payload = {
+            "amount": amount,
+            "currency": currency,
+            "receipt": receipt
+            or "merchantops_test_receipt",
+        }
+
+        return self._request(
+            "POST",
+            "/orders",
+            json=payload,
+        )
+
     def fetch_payments(
         self,
         count: int = 10,
@@ -81,7 +109,7 @@ class RazorpayClient:
             "GET",
             "/payments",
             params={
-                "count": count
+                "count": count,
             },
         )
 
@@ -94,7 +122,7 @@ class RazorpayClient:
             "GET",
             "/orders",
             params={
-                "count": count
+                "count": count,
             },
         )
 

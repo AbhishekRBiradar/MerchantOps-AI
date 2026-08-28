@@ -4,9 +4,11 @@ from typing import Any, Dict
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.agents.orchestrator import MerchantOpsOrchestrator
 from backend.tools.payment_provider import PaymentProvider
+from razorpay.client import RazorpayClient
 
 
 # ============================================================
@@ -19,23 +21,56 @@ app = FastAPI(
         "AI-powered merchant intelligence, revenue recovery, "
         "risk analysis, simulation, and decision automation."
     ),
-    version="1.1.0",
+    version="1.2.0",
 )
 
 
 # ============================================================
-# PAYMENT PROVIDER
+# CORS
+# ============================================================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "http://127.0.0.1:8501",
+        "http://localhost:8501",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ============================================================
+# PAYMENT DATA
 # ============================================================
 
 def load_payment_data(
     source: str,
 ) -> pd.DataFrame:
+    """
+    Load payment data from the selected source.
 
-    source = source.lower().strip()
+    Supported:
+        csv
+        razorpay
+    """
 
-    if source not in {"csv", "razorpay"}:
+    source = (
+        source
+        .lower()
+        .strip()
+    )
+
+    if source not in {
+        "csv",
+        "razorpay",
+    }:
         raise ValueError(
-            "Invalid source. Use 'csv' or 'razorpay'."
+            "Invalid payment source. "
+            "Use 'csv' or 'razorpay'."
         )
 
     provider = PaymentProvider(
@@ -46,12 +81,72 @@ def load_payment_data(
 
 
 # ============================================================
-# MERCHANTOPS PIPELINE
+# EMPTY RESULT
+# ============================================================
+
+def empty_analysis(
+    source: str,
+) -> Dict[str, Any]:
+    """
+    Return a valid empty MerchantOps result.
+
+    Useful when Razorpay Test Mode contains
+    no payments.
+    """
+
+    return {
+        "source": source,
+
+        "operations": {
+            "total_payments": 0,
+            "failed_payments": 0,
+            "captured_payments": 0,
+            "failure_rate": 0.0,
+            "revenue_at_risk": 0.0,
+        },
+
+        "recovery_candidates": 0,
+
+        "risk_candidates": 0,
+
+        "simulated_candidates": 0,
+
+        "decisions": 0,
+
+        "action_counts": {
+            "RETRY_NOW": 0,
+            "RETRY_LATER": 0,
+            "REVIEW": 0,
+            "DO_NOTHING": 0,
+        },
+
+        "execution_modes": {
+            "MERCHANT_APPROVAL": 0,
+            "SCHEDULED_TEST_ACTION": 0,
+            "BLOCKED": 0,
+            "NO_ACTION": 0,
+        },
+
+        "approval_required": 0,
+
+        "allowed_actions": 0,
+
+        "blocked_actions": 0,
+
+        "decision_records": [],
+    }
+
+
+# ============================================================
+# RUN MERCHANTOPS
 # ============================================================
 
 def run_merchantops(
     source: str,
 ) -> Dict[str, Any]:
+    """
+    Execute the complete MerchantOps AI pipeline.
+    """
 
     try:
 
@@ -59,43 +154,16 @@ def run_merchantops(
             source
         )
 
-        # Razorpay Test Mode may contain no payments.
-        # Return a useful empty result instead of crashing.
         if payments_df.empty:
 
-            return {
-                "source": source,
-                "operations": {
-                    "total_payments": 0,
-                    "failed_payments": 0,
-                    "captured_payments": 0,
-                    "failure_rate": 0.0,
-                    "revenue_at_risk": 0.0,
-                },
-                "recovery_candidates": 0,
-                "risk_candidates": 0,
-                "simulated_candidates": 0,
-                "decisions": 0,
-                "action_counts": {
-                    "RETRY_NOW": 0,
-                    "RETRY_LATER": 0,
-                    "REVIEW": 0,
-                    "DO_NOTHING": 0,
-                },
-                "execution_modes": {
-                    "MERCHANT_APPROVAL": 0,
-                    "SCHEDULED_TEST_ACTION": 0,
-                    "BLOCKED": 0,
-                    "NO_ACTION": 0,
-                },
-                "approval_required": 0,
-                "allowed_actions": 0,
-                "blocked_actions": 0,
-                "decision_records": [],
-            }
+            return empty_analysis(
+                source
+            )
 
-        orchestrator = MerchantOpsOrchestrator(
-            payments_df
+        orchestrator = (
+            MerchantOpsOrchestrator(
+                payments_df
+            )
         )
 
         result = orchestrator.run()
@@ -117,6 +185,9 @@ def run_merchantops(
 
 @app.get("/")
 def root() -> Dict[str, str]:
+    """
+    API root endpoint.
+    """
 
     return {
         "service": "MerchantOps AI",
@@ -131,11 +202,81 @@ def root() -> Dict[str, str]:
 
 @app.get("/health")
 def health() -> Dict[str, str]:
+    """
+    Health check.
+    """
 
     return {
         "status": "healthy",
         "service": "MerchantOps AI",
     }
+
+
+# ============================================================
+# CREATE RAZORPAY ORDER
+# ============================================================
+
+@app.post(
+    "/razorpay/create-order"
+)
+def create_razorpay_order(
+    amount: int = Query(
+        default=50000,
+        description=(
+            "Amount in paise. "
+            "₹500 = 50000."
+        ),
+    ),
+) -> Dict[str, Any]:
+    """
+    Create a Razorpay Test Mode order.
+    """
+
+    try:
+
+        if amount <= 0:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Amount must be greater than zero."
+                ),
+            )
+
+        client = RazorpayClient()
+
+        order = client.create_order(
+            amount=amount,
+            currency="INR",
+            receipt=(
+                "merchantops_test_order"
+            ),
+        )
+
+        return {
+            "order_id":
+                order["id"],
+
+            "amount":
+                order["amount"],
+
+            "currency":
+                order["currency"],
+
+            "status":
+                order["status"],
+        }
+
+    except HTTPException:
+
+        raise
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(exc),
+        ) from exc
 
 
 # ============================================================
@@ -146,15 +287,25 @@ def health() -> Dict[str, str]:
 def payments(
     source: str = Query(
         default="csv",
-        description="Payment source: csv or razorpay",
+        description=(
+            "Payment source: "
+            "csv or razorpay"
+        ),
     ),
 ) -> Dict[str, Any]:
+    """
+    Return payment statistics.
+    """
 
     try:
 
         df = load_payment_data(
             source
         )
+
+        # ----------------------------------------------------
+        # Empty data source
+        # ----------------------------------------------------
 
         if df.empty:
 
@@ -166,6 +317,10 @@ def payments(
                 "failure_rate": 0.0,
                 "revenue_at_risk": 0.0,
             }
+
+        # ----------------------------------------------------
+        # Normalize status
+        # ----------------------------------------------------
 
         status = (
             df["status"]
@@ -209,17 +364,22 @@ def payments(
 
         return {
             "source": source,
+
             "total_payments":
                 total_payments,
+
             "failed_payments":
                 failed_payments,
+
             "captured_payments":
                 captured_payments,
+
             "failure_rate":
                 round(
                     failure_rate,
                     2,
                 ),
+
             "revenue_at_risk":
                 round(
                     revenue_at_risk,
@@ -243,9 +403,15 @@ def payments(
 def analyze(
     source: str = Query(
         default="csv",
-        description="Payment source: csv or razorpay",
+        description=(
+            "Payment source: "
+            "csv or razorpay"
+        ),
     ),
 ) -> Dict[str, Any]:
+    """
+    Run the complete MerchantOps AI analysis.
+    """
 
     try:
 
@@ -269,9 +435,15 @@ def analyze(
 def decisions(
     source: str = Query(
         default="csv",
-        description="Payment source: csv or razorpay",
+        description=(
+            "Payment source: "
+            "csv or razorpay"
+        ),
     ),
 ) -> Dict[str, Any]:
+    """
+    Return final AI decisions.
+    """
 
     try:
 

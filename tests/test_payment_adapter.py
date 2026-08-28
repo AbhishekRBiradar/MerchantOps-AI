@@ -16,11 +16,22 @@ class FakeClient:
                     "id": "pay_test_001",
                     "order_id": "order_test_001",
                     "amount": 250000,
-                    "method": "upi",
+                    "method": "netbanking",
                     "status": "failed",
+                    "error_code":
+                        "BAD_REQUEST_ERROR",
+                    "error_description":
+                        "Payment declined by bank",
+                    "error_source":
+                        "bank",
+                    "error_step":
+                        "payment_authorization",
                     "error_reason":
-                        "network_error",
-                    "created_at": 1234567890,
+                        "payment_failed",
+                    "email":
+                        "test@example.com",
+                    "created_at":
+                        1234567890,
                 }
             ]
         }
@@ -40,11 +51,42 @@ def test_payment_normalization():
 
     payment = payments[0]
 
-    assert payment["payment_id"] == "pay_test_001"
-    assert payment["amount"] == 2500.0
-    assert payment["payment_method"] == "UPI"
-    assert payment["status"] == "failed"
+    assert (
+        payment["payment_id"]
+        == "pay_test_001"
+    )
+
+    assert (
+        payment["amount"]
+        == 2500.0
+    )
+
+    assert (
+        payment["payment_method"]
+        == "NETBANKING"
+    )
+
+    assert (
+        payment["status"]
+        == "failed"
+    )
+
     assert (
         payment["failure_reason"]
-        == "network_error"
+        == "payment_failed"
+    )
+
+    assert (
+        payment["error_code"]
+        == "BAD_REQUEST_ERROR"
+    )
+
+    assert (
+        payment["error_source"]
+        == "bank"
+    )
+
+    assert (
+        payment["error_step"]
+        == "payment_authorization"
     )

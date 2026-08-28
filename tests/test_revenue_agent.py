@@ -14,7 +14,12 @@ def test_revenue_agent():
                 "amount": 1000,
                 "payment_method": "UPI",
                 "status": "failed",
-                "failure_reason": "bank_error",
+                "failure_reason": "network_error",
+                "error_code": "TEST_ERROR",
+                "error_description": "Network failure",
+                "error_source": "gateway",
+                "error_step": "payment_initiation",
+                "created_at": "2026-08-01T10:00:00",
                 "retry_count": 0,
             },
             {
@@ -25,6 +30,11 @@ def test_revenue_agent():
                 "payment_method": "CARD",
                 "status": "captured",
                 "failure_reason": "",
+                "error_code": None,
+                "error_description": None,
+                "error_source": None,
+                "error_step": None,
+                "created_at": "2026-08-01T11:00:00",
                 "retry_count": 0,
             },
         ]
@@ -38,3 +48,27 @@ def test_revenue_agent():
     assert result["failed_payments"] == 1
     assert result["captured_payments"] == 1
     assert result["revenue_at_risk"] == 1000.0
+
+    candidate = result[
+        "recovery_candidates"
+    ][0]
+
+    assert (
+        candidate["payment_id"]
+        == "PAY001"
+    )
+
+    assert (
+        candidate["error_code"]
+        == "TEST_ERROR"
+    )
+
+    assert (
+        candidate["error_source"]
+        == "gateway"
+    )
+
+    assert (
+        candidate["error_step"]
+        == "payment_initiation"
+    )

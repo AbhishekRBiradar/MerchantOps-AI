@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>MerchantOps AI - Razorpay Test</title>
+
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 650px;
+            margin: 60px auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        input {
+            padding: 12px;
+            width: 200px;
+            font-size: 16px;
+            margin: 10px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #status {
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+    <h1>💳 MerchantOps AI</h1>
+
+    <p>
+        Razorpay Test Mode Payment
+    </p>
+
+
+    <label>
+        Amount:
+    </label>
+
+    <br>
+
+    <input
+        id="amount"
+        type="number"
+        value="500"
+        min="1"
+    >
+
+    <br>
+
+    <button id="pay-button">
+        Create Test Payment
+    </button>
+
+
+    <div id="status"></div>
+
+
+    <script>
+
+        const status =
+            document.getElementById("status");
+
+
+        document
+            .getElementById("pay-button")
+            .onclick = async function () {
+
+                try {
+
+                    status.textContent =
+                        "Creating Razorpay order...";
+
+
+                    const amount =
+                        Number(
+                            document
+                                .getElementById(
+                                    "amount"
+                                )
+                                .value
+                        );
+
+
+                    if (
+                        !Number.isFinite(amount)
+                        || amount <= 0
+                    ) {
+
+                        throw new Error(
+                            "Enter a valid amount."
+                        );
+
+                    }
+
+
+                    /*
+                     * Convert rupees to paise.
+                     */
+                    const amountInPaise =
+                        Math.round(
+                            amount * 100
+                        );
+
+
+                    /*
+                     * Create the order
+                     * through our FastAPI backend.
+                     */
+                    const orderResponse =
+                        await fetch(
+                            "http://127.0.0.1:8000/"
+                            + "razorpay/create-order"
+                            + "?amount="
+                            + amountInPaise,
+                            {
+                                method: "POST"
+                            }
+                        );
+
+
+                    if (
+                        !orderResponse.ok
+                    ) {
+
+                        const errorText =
+                            await orderResponse.text();
+
+                        throw new Error(
+                            errorText
+                        );
+
+                    }
+
+
+                    const order =
+                        await orderResponse.json();
+
+
+                    status.textContent =
+                        "Order created: "
+                        + order.order_id;
+
+
+                    /*
+                     * IMPORTANT:
+                     * Key ID is safe in frontend.
+                     * Key Secret must remain on server.
+                     */
+                    const options = {
+
+                        key:
+                            "rzp_test_TV7feaaiM2EsjP",
+
+                        amount:
+                            order.amount,
+
+                        currency:
+                            order.currency,
+
+                        name:
+                            "MerchantOps AI",
+
+                        description:
+                            "MerchantOps AI Test Payment",
+
+                        order_id:
+                            order.order_id,
+
+
+                        handler:
+                            function (
+                                response
+                            ) {
+
+                                console.log(
+                                    response
+                                );
+
+                                status.textContent =
+                                    "Payment successful!\n"
+                                    + "Payment ID: "
+                                    + response
+                                        .razorpay_payment_id
+                                    + "\nOrder ID: "
+                                    + response
+                                        .razorpay_order_id;
+
+                            },
+
+
+                        prefill: {
+
+                            name:
+                                "MerchantOps Test User",
+
+                            email:
+                                "test@example.com",
+
+                            contact:
+                                "9999999999"
+
+                        },
+
+
+                        theme: {
+
+                            color:
+                                "#3399cc"
+
+                        }
+
+                    };
+
+
+                    const razorpay =
+                        new Razorpay(
+                            options
+                        );
+
+
+                    razorpay.on(
+                        "payment.failed",
+                        function (
+                            response
+                        ) {
+
+                            console.log(
+                                response
+                            );
+
+                            status.textContent =
+                                "Payment failed.\n"
+                                + "Code: "
+                                + (
+                                    response
+                                        .error
+                                        ?.code
+                                    || "Unknown"
+                                )
+                                + "\nReason: "
+                                + (
+                                    response
+                                        .error
+                                        ?.description
+                                    || "Unknown"
+                                );
+
+                        }
+                    );
+
+
+                    razorpay.open();
+
+                }
+
+                catch (error) {
+
+                    console.error(
+                        error
+                    );
+
+                    status.textContent =
+                        "Error:\n"
+                        + error.message;
+
+                }
+
+            };
+
+    </script>
+
+</body>
+
+</html>
