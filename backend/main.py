@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Dict
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.agents.orchestrator import MerchantOpsOrchestrator
 from backend.tools.payment_provider import PaymentProvider
+from backend.database.audit import AuditLogger
 from razorpay.client import RazorpayClient
+from razorpay.webhook import RazorpayWebhookVerifier
 
 
 # ============================================================
@@ -19,9 +22,10 @@ app = FastAPI(
     title="MerchantOps AI",
     description=(
         "AI-powered merchant intelligence, revenue recovery, "
-        "risk analysis, simulation, and decision automation."
+        "risk analysis, simulation, decision automation, "
+        "and governed payment operations."
     ),
-    version="1.2.0",
+    version="1.3.0",
 )
 
 
@@ -44,6 +48,13 @@ app.add_middleware(
 
 
 # ============================================================
+# CONFIGURATION
+# ============================================================
+
+audit_logger = AuditLogger()
+
+
+# ============================================================
 # PAYMENT DATA
 # ============================================================
 
@@ -51,9 +62,9 @@ def load_payment_data(
     source: str,
 ) -> pd.DataFrame:
     """
-    Load payment data from the selected source.
+    Load payment data from the selected provider.
 
-    Supported:
+    Supported sources:
         csv
         razorpay
     """
@@ -81,17 +92,14 @@ def load_payment_data(
 
 
 # ============================================================
-# EMPTY RESULT
+# EMPTY ANALYSIS
 # ============================================================
 
 def empty_analysis(
     source: str,
 ) -> Dict[str, Any]:
     """
-    Return a valid empty MerchantOps result.
-
-    Useful when Razorpay Test Mode contains
-    no payments.
+    Return a valid empty MerchantOps analysis.
     """
 
     return {
@@ -106,11 +114,8 @@ def empty_analysis(
         },
 
         "recovery_candidates": 0,
-
         "risk_candidates": 0,
-
         "simulated_candidates": 0,
-
         "decisions": 0,
 
         "action_counts": {
@@ -128,9 +133,7 @@ def empty_analysis(
         },
 
         "approval_required": 0,
-
         "allowed_actions": 0,
-
         "blocked_actions": 0,
 
         "decision_records": [],
@@ -193,6 +196,7 @@ def root() -> Dict[str, str]:
         "service": "MerchantOps AI",
         "status": "running",
         "docs": "/docs",
+        "webhook": "/webhooks/razorpay",
     }
 
 
@@ -203,7 +207,7 @@ def root() -> Dict[str, str]:
 @app.get("/health")
 def health() -> Dict[str, str]:
     """
-    Health check.
+    API health check.
     """
 
     return {
@@ -213,7 +217,7 @@ def health() -> Dict[str, str]:
 
 
 # ============================================================
-# CREATE RAZORPAY ORDER
+# RAZORPAY CREATE ORDER
 # ============================================================
 
 @app.post(
@@ -303,10 +307,6 @@ def payments(
             source
         )
 
-        # ----------------------------------------------------
-        # Empty data source
-        # ----------------------------------------------------
-
         if df.empty:
 
             return {
@@ -317,10 +317,6 @@ def payments(
                 "failure_rate": 0.0,
                 "revenue_at_risk": 0.0,
             }
-
-        # ----------------------------------------------------
-        # Normalize status
-        # ----------------------------------------------------
 
         status = (
             df["status"]
@@ -364,22 +360,17 @@ def payments(
 
         return {
             "source": source,
-
             "total_payments":
                 total_payments,
-
             "failed_payments":
                 failed_payments,
-
             "captured_payments":
                 captured_payments,
-
             "failure_rate":
                 round(
                     failure_rate,
                     2,
                 ),
-
             "revenue_at_risk":
                 round(
                     revenue_at_risk,
@@ -410,7 +401,7 @@ def analyze(
     ),
 ) -> Dict[str, Any]:
     """
-    Run the complete MerchantOps AI analysis.
+    Run complete MerchantOps AI analysis.
     """
 
     try:
@@ -474,8 +465,210 @@ def decisions(
                 result["blocked_actions"],
 
             "decisions":
-                result["decision_records"],
+                result[
+                    "decision_records"
+                ],
         }
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(exc),
+        ) from exc
+
+
+# ============================================================
+# RAZORPAY WEBHOOK
+# ============================================================
+
+@app.post(
+    "/webhooks/razorpay"
+)
+async def razorpay_webhook(
+    request: Request,
+) -> Dict[str, Any]:
+    """
+    Receive and verify Razorpay webhook events.
+
+    Signature verification is performed against the
+    exact raw request body.
+    """
+
+    try:
+
+        # ----------------------------------------------------
+        # Read raw request body
+        # ----------------------------------------------------
+
+        payload = await request.body()
+
+        # ----------------------------------------------------
+        # Read Razorpay signature
+        # ----------------------------------------------------
+
+        signature = request.headers.get(
+            "X-Razorpay-Signature"
+        )
+
+        if not signature:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Missing "
+                    "X-Razorpay-Signature header."
+                ),
+            )
+
+        # ----------------------------------------------------
+        # Verify webhook signature
+        # ----------------------------------------------------
+
+        verifier = (
+            RazorpayWebhookVerifier()
+        )
+
+        valid = verifier.verify(
+            payload,
+            signature,
+        )
+
+        if not valid:
+
+            raise HTTPException(
+                status_code=401,
+                detail=(
+                    "Invalid webhook signature."
+                ),
+            )
+
+        # ----------------------------------------------------
+        # Parse event after verification
+        # ----------------------------------------------------
+
+        event = json.loads(
+            payload.decode(
+                "utf-8"
+            )
+        )
+
+        event_name = str(
+            event.get(
+                "event",
+                "unknown",
+            )
+        )
+
+        payload_data = event.get(
+            "payload",
+            {}
+        )
+
+        payment_entity = (
+            payload_data
+            .get("payment", {})
+            .get("entity", {})
+        )
+
+        payment_id = payment_entity.get(
+            "id"
+        )
+
+        order_id = payment_entity.get(
+            "order_id"
+        )
+
+        payment_status = payment_entity.get(
+            "status"
+        )
+
+        amount = payment_entity.get(
+            "amount"
+        )
+
+        # ----------------------------------------------------
+        # Store webhook event in audit log
+        # ----------------------------------------------------
+
+        audit_event = audit_logger.log_event(
+            event_type="RAZORPAY_WEBHOOK",
+            payment_id=payment_id,
+            action=event_name,
+            status="RECEIVED",
+            details={
+                "order_id":
+                    order_id,
+
+                "payment_status":
+                    payment_status,
+
+                "amount":
+                    (
+                        float(amount) / 100
+                        if amount is not None
+                        else None
+                    ),
+
+                "event":
+                    event,
+            },
+        )
+
+        # ----------------------------------------------------
+        # Event-specific handling
+        # ----------------------------------------------------
+
+        if event_name == "payment.failed":
+
+            processing_status = (
+                "PAYMENT_FAILED_RECORDED"
+            )
+
+        elif event_name == "payment.captured":
+
+            processing_status = (
+                "PAYMENT_CAPTURED_RECORDED"
+            )
+
+        elif event_name == "payment.authorized":
+
+            processing_status = (
+                "PAYMENT_AUTHORIZED_RECORDED"
+            )
+
+        else:
+
+            processing_status = (
+                "EVENT_RECORDED"
+            )
+
+        return {
+            "status": "accepted",
+            "event": event_name,
+            "payment_id": payment_id,
+            "order_id": order_id,
+            "payment_status":
+                payment_status,
+            "processing_status":
+                processing_status,
+            "audit_recorded": bool(
+                audit_event
+            ),
+        }
+
+    except HTTPException:
+
+        raise
+
+    except json.JSONDecodeError:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid JSON webhook payload."
+            ),
+        )
 
     except Exception as exc:
 
