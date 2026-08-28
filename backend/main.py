@@ -1,36 +1,32 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, Dict
 
 import pandas as pd
-
+from dotenv import load_dotenv
 from fastapi import (
     FastAPI,
     HTTPException,
     Query,
     Request,
 )
-
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from backend.agents.orchestrator import (
     MerchantOpsOrchestrator,
 )
-
 from backend.database.audit import (
     AuditLogger,
 )
-
 from backend.database.webhook_events import (
     WebhookEventStore,
 )
-
 from backend.tools.payment_provider import (
     PaymentProvider,
 )
-
 from backend.tools.webhook_processor import (
     RazorpayWebhookProcessor,
 )
@@ -38,10 +34,16 @@ from backend.tools.webhook_processor import (
 from razorpay.client import (
     RazorpayClient,
 )
-
 from razorpay.webhook import (
     RazorpayWebhookVerifier,
 )
+
+
+# ============================================================
+# LOAD ENVIRONMENT VARIABLES
+# ============================================================
+
+load_dotenv()
 
 
 # ============================================================
@@ -55,8 +57,33 @@ app = FastAPI(
         "risk analysis, simulation, decision automation, "
         "payment verification, and governed payment operations."
     ),
-    version="1.6.0",
+    version="1.7.0",
 )
+
+
+# ============================================================
+# ENVIRONMENT CONFIGURATION
+# ============================================================
+
+API_URL = os.getenv(
+    "API_URL",
+    "http://127.0.0.1:8000",
+).rstrip("/")
+
+
+cors_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        (
+            "http://127.0.0.1:5500,"
+            "http://localhost:5500,"
+            "http://127.0.0.1:8501,"
+            "http://localhost:8501"
+        ),
+    ).split(",")
+    if origin.strip()
+]
 
 
 # ============================================================
@@ -65,12 +92,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:5500",
-        "http://localhost:5500",
-        "http://127.0.0.1:8501",
-        "http://localhost:8501",
-    ],
+    allow_origins=cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -135,6 +157,7 @@ def load_payment_data(
         "csv",
         "razorpay",
     }:
+
         raise ValueError(
             "Invalid payment source. "
             "Use 'csv' or 'razorpay'."
@@ -269,6 +292,9 @@ def root() -> Dict[str, str]:
 
         "payment_verification":
             "/razorpay/verify-payment",
+
+        "api_url":
+            API_URL,
     }
 
 
@@ -376,8 +402,7 @@ def verify_razorpay_payment(
     Verify the Razorpay Checkout payment signature.
 
     After successful verification, fetch the payment
-    directly from Razorpay and return trusted payment
-    information.
+    directly from Razorpay and return trusted details.
     """
 
     try:
@@ -462,9 +487,7 @@ def verify_razorpay_payment(
             }
 
         # ----------------------------------------------------
-        # 3. Signature verified
-        #
-        # Fetch the payment directly from Razorpay.
+        # 3. Fetch payment directly from Razorpay
         # ----------------------------------------------------
 
         payment = (
@@ -474,11 +497,13 @@ def verify_razorpay_payment(
         )
 
         # ----------------------------------------------------
-        # 4. Extract payment values
+        # 4. Extract trusted payment values
         # ----------------------------------------------------
 
         amount_paise = (
-            payment.get("amount")
+            payment.get(
+                "amount"
+            )
         )
 
         amount_rupees = (
@@ -488,43 +513,63 @@ def verify_razorpay_payment(
         )
 
         payment_id = (
-            payment.get("id")
+            payment.get(
+                "id"
+            )
         )
 
         order_id = (
-            payment.get("order_id")
+            payment.get(
+                "order_id"
+            )
         )
 
         payment_status = (
-            payment.get("status")
+            payment.get(
+                "status"
+            )
         )
 
         currency = (
-            payment.get("currency")
+            payment.get(
+                "currency"
+            )
         )
 
         payment_method = (
-            payment.get("method")
+            payment.get(
+                "method"
+            )
         )
 
         email = (
-            payment.get("email")
+            payment.get(
+                "email"
+            )
         )
 
         contact = (
-            payment.get("contact")
+            payment.get(
+                "contact"
+            )
         )
 
         created_at = (
-            payment.get("created_at")
+            payment.get(
+                "created_at"
+            )
         )
 
         captured = (
-            payment.get("captured")
+            payment.get(
+                "captured"
+            )
         )
 
         amount_refunded = (
-            payment.get("amount_refunded")
+            payment.get(
+                "amount_refunded"
+            )
         )
 
         # ----------------------------------------------------
@@ -536,17 +581,14 @@ def verify_razorpay_payment(
                 "PAYMENT_VERIFICATION"
             ),
 
-            payment_id=(
-                payment_id
-            ),
+            payment_id=
+                payment_id,
 
-            action=(
-                "VERIFY_PAYMENT"
-            ),
+            action=
+                "VERIFY_PAYMENT",
 
-            status=(
-                "VERIFIED"
-            ),
+            status=
+                "VERIFIED",
 
             details={
                 "order_id":
@@ -588,7 +630,7 @@ def verify_razorpay_payment(
         )
 
         # ----------------------------------------------------
-        # 6. Return trusted payment information
+        # 6. Return trusted payment data
         # ----------------------------------------------------
 
         return {
@@ -639,6 +681,10 @@ def verify_razorpay_payment(
                     created_at,
             },
         }
+
+    except HTTPException:
+
+        raise
 
     except Exception as exc:
 
@@ -884,7 +930,7 @@ async def razorpay_webhook(
     try:
 
         # ----------------------------------------------------
-        # 1. Read exact raw request body
+        # 1. Read exact raw body
         # ----------------------------------------------------
 
         payload = (
@@ -934,7 +980,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 4. Parse JSON
+        # 4. Parse JSON after verification
         # ----------------------------------------------------
 
         try:
@@ -1007,7 +1053,7 @@ async def razorpay_webhook(
         )
 
         # ----------------------------------------------------
-        # 6. Idempotency check
+        # 6. Idempotency
         # ----------------------------------------------------
 
         if event_id:
@@ -1130,7 +1176,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 10. Record event only after successful processing
+        # 10. Record event after successful processing
         # ----------------------------------------------------
 
         if event_id:
@@ -1147,7 +1193,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 11. Return response
+        # 11. Return webhook response
         # ----------------------------------------------------
 
         return {

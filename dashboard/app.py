@@ -1,19 +1,31 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List
 
 import pandas as pd
 import requests
 import streamlit as st
+from dotenv import load_dotenv
+
+
+# ============================================================
+# LOAD ENVIRONMENT VARIABLES
+# ============================================================
+
+load_dotenv()
 
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = os.getenv(
+    "API_URL",
+    "http://127.0.0.1:8000",
+).rstrip("/")
 
 AUDIT_FILE = Path(
     "data/audit_log.jsonl"
