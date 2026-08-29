@@ -17,11 +17,14 @@ from psycopg.types.json import Jsonb
 
 class PostgresDatabase:
     """
-    PostgreSQL database helper for MerchantOps AI.
+    PostgreSQL persistence layer for MerchantOps AI.
 
-    The connection string is read from:
+    Production:
+        Uses DATABASE_URL.
 
-        DATABASE_URL
+    Stores:
+        - audit_logs
+        - webhook_events
     """
 
     def __init__(
@@ -37,7 +40,6 @@ class PostgresDatabase:
         )
 
         if not self.database_url:
-
             raise ValueError(
                 "DATABASE_URL is missing."
             )
@@ -48,7 +50,10 @@ class PostgresDatabase:
 
     def connect(self):
         """
-        Create a PostgreSQL connection using dict rows.
+        Create a PostgreSQL connection.
+
+        dict_row is intentional so database rows are returned
+        as dictionaries and can be accessed by column name.
         """
 
         return psycopg.connect(
@@ -62,8 +67,7 @@ class PostgresDatabase:
 
     def initialize(self) -> None:
         """
-        Create MerchantOps persistence tables and indexes
-        when they do not already exist.
+        Create required tables and indexes if necessary.
         """
 
         with self.connect() as connection:
@@ -181,11 +185,11 @@ class PostgresDatabase:
         event: Dict[str, Any],
     ) -> None:
         """
-        Insert one audit event into PostgreSQL.
+        Insert one audit event.
 
-        `details` is explicitly wrapped with Jsonb so nested
-        Python dictionaries/lists are safely adapted to the
-        PostgreSQL JSONB column.
+        details is explicitly wrapped with Jsonb so nested
+        Python dictionaries/lists are correctly stored in
+        PostgreSQL JSONB.
         """
 
         details = event.get(
@@ -289,7 +293,7 @@ class PostgresDatabase:
         self,
     ) -> List[Dict[str, Any]]:
         """
-        Return all audit events in ascending database order.
+        Return all audit events, oldest first by ID.
         """
 
         with self.connect() as connection:
@@ -325,15 +329,15 @@ class PostgresDatabase:
 
             event = dict(row)
 
-            if event.get(
+            timestamp = event.get(
                 "timestamp"
-            ):
+            )
 
-                event["timestamp"] = (
-                    event[
-                        "timestamp"
-                    ].isoformat()
-                )
+            if timestamp is not None:
+
+                event[
+                    "timestamp"
+                ] = timestamp.isoformat()
 
             events.append(
                 event
@@ -350,7 +354,7 @@ class PostgresDatabase:
         limit: int = 100,
     ) -> List[Dict[str, Any]]:
         """
-        Return the newest audit events first.
+        Return recent audit events, newest first.
         """
 
         limit = max(
@@ -400,15 +404,15 @@ class PostgresDatabase:
 
             event = dict(row)
 
-            if event.get(
+            timestamp = event.get(
                 "timestamp"
-            ):
+            )
 
-                event["timestamp"] = (
-                    event[
-                        "timestamp"
-                    ].isoformat()
-                )
+            if timestamp is not None:
+
+                event[
+                    "timestamp"
+                ] = timestamp.isoformat()
 
             events.append(
                 event
@@ -425,7 +429,7 @@ class PostgresDatabase:
         event_id: str,
     ) -> bool:
         """
-        Return True when a webhook event already exists.
+        Return True if the webhook event already exists.
         """
 
         with self.connect() as connection:
@@ -434,20 +438,22 @@ class PostgresDatabase:
 
                 cursor.execute(
                     """
-                    SELECT 1
-                    FROM webhook_events
-                    WHERE event_id = %s
-                    LIMIT 1
+                    SELECT EXISTS(
+                        SELECT 1
+                        FROM webhook_events
+                        WHERE event_id = %s
+                    ) AS exists
                     """,
                     (
                         event_id,
                     ),
                 )
 
-                return (
-                    cursor.fetchone()
-                    is not None
-                )
+                row = cursor.fetchone()
+
+        return bool(
+            row["exists"]
+        )
 
     # ========================================================
     # RECORD WEBHOOK
@@ -462,7 +468,8 @@ class PostgresDatabase:
         """
         Record a webhook event.
 
-        Duplicate event IDs are ignored.
+        Duplicate event IDs are ignored through the
+        PostgreSQL primary-key constraint.
         """
 
         with self.connect() as connection:
@@ -503,7 +510,7 @@ class PostgresDatabase:
         self,
     ) -> List[Dict[str, Any]]:
         """
-        Return all stored webhook events, newest first.
+        Return all webhook events, newest first.
         """
 
         with self.connect() as connection:
@@ -533,15 +540,15 @@ class PostgresDatabase:
 
             event = dict(row)
 
-            if event.get(
+            created_at = event.get(
                 "created_at"
-            ):
+            )
 
-                event["created_at"] = (
-                    event[
-                        "created_at"
-                    ].isoformat()
-                )
+            if created_at is not None:
+
+                event[
+                    "created_at"
+                ] = created_at.isoformat()
 
             events.append(
                 event
@@ -550,14 +557,17 @@ class PostgresDatabase:
         return events
 
     # ========================================================
-    # DATABASE STATS
+    # BASIC DATABASE STATS
     # ========================================================
 
     def get_stats(
         self,
     ) -> Dict[str, int]:
         """
-        Return basic PostgreSQL record counts.
+        Return total record counts.
+
+        This implementation uses dictionary column names
+        because the connection uses dict_row.
         """
 
         with self.connect() as connection:
@@ -566,39 +576,41 @@ class PostgresDatabase:
 
                 cursor.execute(
                     """
-                    SELECT COUNT(*)
+                    SELECT
+                        COUNT(*) AS count
                     FROM audit_logs
                     """
                 )
 
-                audit_logs = int(
-                    cursor.fetchone()[
-                        0
-                    ]
-                    or 0
+                audit_row = (
+                    cursor.fetchone()
                 )
 
                 cursor.execute(
                     """
-                    SELECT COUNT(*)
+                    SELECT
+                        COUNT(*) AS count
                     FROM webhook_events
                     """
                 )
 
-                webhook_events = int(
-                    cursor.fetchone()[
-                        0
-                    ]
-                    or 0
+                webhook_row = (
+                    cursor.fetchone()
                 )
 
         return {
 
             "audit_logs":
-                audit_logs,
+                int(
+                    audit_row["count"]
+                    or 0
+                ),
 
             "webhook_events":
-                webhook_events,
+                int(
+                    webhook_row["count"]
+                    or 0
+                ),
         }
 
     # ========================================================
@@ -609,11 +621,10 @@ class PostgresDatabase:
         self,
     ) -> Dict[str, int]:
         """
-        Return authoritative activity counts directly from
-        PostgreSQL.
+        Return authoritative aggregate activity counts.
 
-        This avoids counting only the latest 1000 audit rows
-        inside the Streamlit dashboard.
+        These values are calculated by PostgreSQL and are not
+        limited to the latest 1000 audit records.
         """
 
         with self.connect() as connection:
@@ -621,12 +632,13 @@ class PostgresDatabase:
             with connection.cursor() as cursor:
 
                 # ------------------------------------------------
-                # AUDIT COUNTS
+                # AUDIT-BASED COUNTS
                 # ------------------------------------------------
 
                 cursor.execute(
                     """
                     SELECT
+
                         COUNT(*) FILTER (
                             WHERE event_type =
                             'PAYMENT_VERIFICATION'
@@ -648,58 +660,63 @@ class PostgresDatabase:
                     """
                 )
 
-                row = cursor.fetchone()
-
-                verification_events = int(
-                    row[0]
-                    or 0
-                )
-
-                verified_payments = int(
-                    row[1]
-                    or 0
-                )
-
-                webhook_processing = int(
-                    row[2]
-                    or 0
+                row = (
+                    cursor.fetchone()
                 )
 
                 # ------------------------------------------------
-                # WEBHOOK EVENT COUNT
+                # WEBHOOK TABLE COUNT
                 # ------------------------------------------------
 
                 cursor.execute(
                     """
-                    SELECT COUNT(*)
+                    SELECT
+                        COUNT(*) AS webhook_events
                     FROM webhook_events
                     """
                 )
 
-                webhook_events = int(
-                    cursor.fetchone()[
-                        0
-                    ]
-                    or 0
+                webhook_row = (
+                    cursor.fetchone()
                 )
 
         return {
 
             "verified_payments":
-                verified_payments,
+                int(
+                    row[
+                        "verified_payments"
+                    ]
+                    or 0
+                ),
 
             "verification_events":
-                verification_events,
+                int(
+                    row[
+                        "verification_events"
+                    ]
+                    or 0
+                ),
 
             "webhook_events":
-                webhook_events,
+                int(
+                    webhook_row[
+                        "webhook_events"
+                    ]
+                    or 0
+                ),
 
             "webhook_processing":
-                webhook_processing,
+                int(
+                    row[
+                        "webhook_processing"
+                    ]
+                    or 0
+                ),
         }
 
     # ========================================================
-    # COMPATIBILITY ALIAS
+    # COMPATIBILITY ALIASES
     # ========================================================
 
     def insert_webhook_event(
@@ -709,7 +726,7 @@ class PostgresDatabase:
         payment_id: Optional[str] = None,
     ) -> None:
         """
-        Compatibility alias for webhook persistence.
+        Compatibility alias used by older application code.
         """
 
         self.record_webhook(
@@ -718,16 +735,12 @@ class PostgresDatabase:
             payment_id=payment_id,
         )
 
-    # ========================================================
-    # COMPATIBILITY ALIAS
-    # ========================================================
-
     def webhook_event_exists(
         self,
         event_id: str,
     ) -> bool:
         """
-        Compatibility alias for webhook existence checks.
+        Compatibility alias used by older application code.
         """
 
         return self.webhook_exists(
