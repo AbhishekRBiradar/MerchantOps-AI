@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import json
 import os
-from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import pandas as pd
 import requests
@@ -12,7 +10,7 @@ from dotenv import load_dotenv
 
 
 # ============================================================
-# LOAD ENVIRONMENT VARIABLES
+# LOAD ENVIRONMENT
 # ============================================================
 
 load_dotenv()
@@ -27,15 +25,9 @@ API_URL = os.getenv(
     "http://127.0.0.1:8000",
 ).rstrip("/")
 
-AUDIT_FILE = Path(
-    "data/audit_log.jsonl"
-)
-
-DEFAULT_SOURCE = "csv"
-
 
 # ============================================================
-# PAGE CONFIGURATION
+# PAGE CONFIG
 # ============================================================
 
 st.set_page_config(
@@ -43,43 +35,6 @@ st.set_page_config(
     page_icon="💳",
     layout="wide",
     initial_sidebar_state="expanded",
-)
-
-
-# ============================================================
-# CUSTOM CSS
-# ============================================================
-
-st.markdown(
-    """
-    <style>
-
-        .main-title {
-            font-size: 44px;
-            font-weight: 750;
-            margin-bottom: 2px;
-        }
-
-        .subtitle {
-            font-size: 17px;
-            opacity: 0.72;
-            margin-bottom: 20px;
-        }
-
-        .section-title {
-            font-size: 28px;
-            font-weight: 700;
-            margin-top: 10px;
-            margin-bottom: 12px;
-        }
-
-        div[data-testid="stMetric"] {
-            padding: 8px;
-        }
-
-    </style>
-    """,
-    unsafe_allow_html=True,
 )
 
 
@@ -103,194 +58,57 @@ def fetch_api(
 
 
 # ============================================================
-# AUDIT LOADER
+# API POST HELPER
 # ============================================================
 
-def load_audit_events() -> List[Dict[str, Any]]:
+def post_api(
+    endpoint: str,
+    payload: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
 
-    if not AUDIT_FILE.exists():
-        return []
-
-    events: List[Dict[str, Any]] = []
-
-    with AUDIT_FILE.open(
-        "r",
-        encoding="utf-8",
-    ) as file:
-
-        for line in file:
-
-            line = line.strip()
-
-            if not line:
-                continue
-
-            try:
-
-                events.append(
-                    json.loads(line)
-                )
-
-            except json.JSONDecodeError:
-
-                continue
-
-    return events
-
-
-# ============================================================
-# AUDIT HELPERS
-# ============================================================
-
-def get_event_count(
-    events: List[Dict[str, Any]],
-    event_type: str,
-) -> int:
-
-    return sum(
-        1
-        for event in events
-        if event.get("event_type")
-        == event_type
+    response = requests.post(
+        f"{API_URL}{endpoint}",
+        json=payload,
+        timeout=60,
     )
 
+    response.raise_for_status()
 
-def get_verified_payments(
-    events: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
-
-    verified = []
-
-    for event in events:
-
-        if (
-            event.get("event_type")
-            != "PAYMENT_VERIFICATION"
-        ):
-            continue
-
-        if (
-            event.get("status")
-            != "VERIFIED"
-        ):
-            continue
-
-        details = event.get(
-            "details",
-            {},
-        )
-
-        verified.append(
-            {
-                "Timestamp":
-                    event.get(
-                        "timestamp"
-                    ),
-
-                "Payment ID":
-                    event.get(
-                        "payment_id"
-                    ),
-
-                "Order ID":
-                    details.get(
-                        "order_id"
-                    ),
-
-                "Amount":
-                    details.get(
-                        "amount"
-                    ),
-
-                "Currency":
-                    details.get(
-                        "currency"
-                    ),
-
-                "Payment Status":
-                    details.get(
-                        "payment_status"
-                    ),
-
-                "Payment Method":
-                    details.get(
-                        "payment_method"
-                    ),
-
-                "Captured":
-                    details.get(
-                        "captured"
-                    ),
-            }
-        )
-
-    return verified
-
-
-def get_webhook_events(
-    events: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
-
-    webhook_events = []
-
-    for event in events:
-
-        if (
-            event.get("event_type")
-            != "RAZORPAY_WEBHOOK"
-        ):
-            continue
-
-        details = event.get(
-            "details",
-            {},
-        )
-
-        webhook_events.append(
-            {
-                "Timestamp":
-                    event.get(
-                        "timestamp"
-                    ),
-
-                "Event":
-                    event.get(
-                        "action"
-                    ),
-
-                "Event ID":
-                    details.get(
-                        "event_id"
-                    ),
-
-                "Payment ID":
-                    event.get(
-                        "payment_id"
-                    ),
-
-                "Order ID":
-                    details.get(
-                        "order_id"
-                    ),
-
-                "Payment Status":
-                    details.get(
-                        "payment_status"
-                    ),
-
-                "Status":
-                    event.get(
-                        "status"
-                    ),
-            }
-        )
-
-    return webhook_events
+    return response.json()
 
 
 # ============================================================
-# HEADER
+# PAGE HEADER
 # ============================================================
+
+st.markdown(
+    """
+    <style>
+
+    .main-title {
+        font-size: 42px;
+        font-weight: 750;
+        margin-bottom: 4px;
+    }
+
+    .subtitle {
+        font-size: 17px;
+        opacity: 0.72;
+        margin-bottom: 18px;
+    }
+
+    .section-title {
+        font-size: 28px;
+        font-weight: 700;
+        margin-top: 12px;
+        margin-bottom: 12px;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 st.markdown(
     '<div class="main-title">💳 MerchantOps AI</div>',
@@ -309,16 +127,12 @@ st.divider()
 
 
 # ============================================================
-# SIDEBAR CONTROLS
+# SIDEBAR
 # ============================================================
 
 with st.sidebar:
 
     st.header("⚙️ Controls")
-
-    # --------------------------------------------------------
-    # PAYMENT DATA SOURCE
-    # --------------------------------------------------------
 
     source_label = st.radio(
         "Payment Data Source",
@@ -326,23 +140,14 @@ with st.sidebar:
             "Demo Dataset",
             "Razorpay Test Mode",
         ],
-        index=(
-            0
-            if DEFAULT_SOURCE == "csv"
-            else 1
-        ),
+        index=0,
     )
 
     source = (
         "razorpay"
-        if source_label
-        == "Razorpay Test Mode"
+        if source_label == "Razorpay Test Mode"
         else "csv"
     )
-
-    # --------------------------------------------------------
-    # REFRESH
-    # --------------------------------------------------------
 
     if st.button(
         "🔄 Refresh Data",
@@ -350,18 +155,11 @@ with st.sidebar:
     ):
 
         st.cache_data.clear()
-
         st.rerun()
 
     st.divider()
 
-    # --------------------------------------------------------
-    # BACKEND INFORMATION
-    # --------------------------------------------------------
-
-    st.caption(
-        "Backend"
-    )
+    st.caption("Backend")
 
     st.code(
         API_URL,
@@ -378,7 +176,7 @@ with st.sidebar:
 
 
 # ============================================================
-# LOAD API DATA
+# API DATA LOADING
 # ============================================================
 
 try:
@@ -395,10 +193,22 @@ try:
         f"/decisions?source={source}"
     )
 
+    audit_data = fetch_api(
+        "/audit?limit=100"
+    )
+
+    webhook_data = fetch_api(
+        "/webhooks/events"
+    )
+
+    verified_data = fetch_api(
+        "/payments/verified"
+    )
+
 except Exception as exc:
 
     st.error(
-        "Unable to connect to the MerchantOps API."
+        "❌ Unable to connect to MerchantOps API."
     )
 
     st.code(
@@ -406,55 +216,35 @@ except Exception as exc:
     )
 
     st.info(
-        "Start FastAPI with:\n\n"
-        "python -m uvicorn backend.main:app --reload"
+        "Make sure FastAPI is running or that the "
+        "production API URL is configured correctly."
     )
 
     st.stop()
 
 
 # ============================================================
-# LOAD AUDIT DATA
+# EXTRACT DATA
 # ============================================================
 
-audit_events = load_audit_events()
-
-verified_payments = (
-    get_verified_payments(
-        audit_events
-    )
+audit_events = audit_data.get(
+    "events",
+    []
 )
 
-webhook_events = (
-    get_webhook_events(
-        audit_events
-    )
+webhook_events = webhook_data.get(
+    "events",
+    []
 )
 
-payment_verification_count = (
-    get_event_count(
-        audit_events,
-        "PAYMENT_VERIFICATION",
-    )
-)
-
-webhook_event_count = (
-    get_event_count(
-        audit_events,
-        "RAZORPAY_WEBHOOK",
-    )
-)
-
-webhook_processing_count = (
-    get_event_count(
-        audit_events,
-        "WEBHOOK_PROCESSING",
-    )
+verified_payments = verified_data.get(
+    "payments",
+    []
 )
 
 
 # ============================================================
-# API STATUS
+# API CONNECTION STATUS
 # ============================================================
 
 status_col1, status_col2 = st.columns(
@@ -490,38 +280,58 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+operations = analysis_data.get(
+    "operations",
+    {},
+)
+
 total_payments = int(
     payments_data.get(
         "total_payments",
-        0,
+        operations.get(
+            "total_payments",
+            0,
+        ),
     )
 )
 
 failed_payments = int(
     payments_data.get(
         "failed_payments",
-        0,
+        operations.get(
+            "failed_payments",
+            0,
+        ),
     )
 )
 
 captured_payments = int(
     payments_data.get(
         "captured_payments",
-        0,
+        operations.get(
+            "captured_payments",
+            0,
+        ),
     )
 )
 
 failure_rate = float(
     payments_data.get(
         "failure_rate",
-        0,
+        operations.get(
+            "failure_rate",
+            0,
+        ),
     )
 )
 
 revenue_at_risk = float(
     payments_data.get(
         "revenue_at_risk",
-        0,
+        operations.get(
+            "revenue_at_risk",
+            0,
+        ),
     )
 )
 
@@ -529,14 +339,12 @@ success_rate = (
     captured_payments
     / total_payments
     * 100
-    if total_payments > 0
+    if total_payments
     else 0.0
 )
 
 
-c1, c2, c3, c4, c5 = st.columns(
-    5
-)
+c1, c2, c3, c4, c5 = st.columns(5)
 
 with c1:
 
@@ -588,29 +396,55 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-r1, r2, r3, r4 = st.columns(
-    4
+verification_count = len(
+    verified_payments
 )
+
+webhook_count = len(
+    webhook_events
+)
+
+verification_event_count = sum(
+    1
+    for event in audit_events
+    if event.get(
+        "event_type"
+    ) == "PAYMENT_VERIFICATION"
+)
+
+webhook_processing_count = sum(
+    1
+    for event in audit_events
+    if event.get(
+        "event_type"
+    ) in {
+        "RAZORPAY_WEBHOOK",
+        "WEBHOOK_PROCESSING",
+    }
+)
+
+
+r1, r2, r3, r4 = st.columns(4)
 
 with r1:
 
     st.metric(
         "Verified Payments",
-        len(verified_payments),
+        verification_count,
     )
 
 with r2:
 
     st.metric(
         "Verification Events",
-        payment_verification_count,
+        verification_event_count,
     )
 
 with r3:
 
     st.metric(
         "Webhook Events",
-        webhook_event_count,
+        webhook_count,
     )
 
 with r4:
@@ -621,29 +455,31 @@ with r4:
     )
 
 
-if source == "razorpay":
+# ============================================================
+# VERIFIED PAYMENTS TABLE
+# ============================================================
 
-    if verified_payments:
+st.markdown(
+    "#### Recently Verified Payments"
+)
 
-        verified_df = pd.DataFrame(
-            verified_payments
-        )
+if verified_payments:
 
-        st.markdown(
-            "#### Recently Verified Payments"
-        )
+    verified_df = pd.DataFrame(
+        verified_payments
+    )
 
-        st.dataframe(
-            verified_df.tail(10).iloc[::-1],
-            use_container_width=True,
-            hide_index=True,
-        )
+    st.dataframe(
+        verified_df.head(10),
+        use_container_width=True,
+        hide_index=True,
+    )
 
-    else:
+else:
 
-        st.info(
-            "No verified Razorpay payments recorded yet."
-        )
+    st.info(
+        "No verified Razorpay payments found."
+    )
 
 
 st.divider()
@@ -667,7 +503,7 @@ if webhook_events:
     )
 
     st.dataframe(
-        webhook_df.tail(20).iloc[::-1],
+        webhook_df.iloc[::-1].head(20),
         use_container_width=True,
         hide_index=True,
     )
@@ -675,7 +511,7 @@ if webhook_events:
 else:
 
     st.info(
-        "No Razorpay webhook events recorded yet."
+        "No Razorpay webhook events found."
     )
 
 
@@ -693,11 +529,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-operations = analysis_data.get(
-    "operations",
-    {},
-)
-
 recovery_candidates = int(
     analysis_data.get(
         "recovery_candidates",
@@ -705,10 +536,13 @@ recovery_candidates = int(
     )
 )
 
-final_decisions = int(
+decision_count = int(
     analysis_data.get(
         "decisions",
-        0,
+        decisions_data.get(
+            "count",
+            0,
+        ),
     )
 )
 
@@ -728,22 +562,20 @@ expected_recovery = sum(
 )
 
 
-s1, s2, s3, s4 = st.columns(
-    4
-)
+s1, s2, s3, s4 = st.columns(4)
 
 with s1:
 
     st.metric(
         "Revenue at Risk",
-        f"₹{float(operations.get('revenue_at_risk', 0)):,.0f}",
+        f"₹{revenue_at_risk:,.0f}",
     )
 
 with s2:
 
     st.metric(
         "Recovery Candidates",
-        f"{recovery_candidates:,}",
+        recovery_candidates,
     )
 
 with s3:
@@ -757,7 +589,7 @@ with s4:
 
     st.metric(
         "AI Decisions",
-        f"{final_decisions:,}",
+        decision_count,
     )
 
 
@@ -777,39 +609,10 @@ st.markdown(
 
 action_counts = decisions_data.get(
     "action_counts",
-    {}
+    {},
 )
 
-retry_now = int(
-    action_counts.get(
-        "RETRY_NOW",
-        0,
-    )
-)
-
-retry_later = int(
-    action_counts.get(
-        "RETRY_LATER",
-        0,
-    )
-)
-
-review = int(
-    action_counts.get(
-        "REVIEW",
-        0,
-    )
-)
-
-do_nothing = int(
-    action_counts.get(
-        "DO_NOTHING",
-        0,
-    )
-)
-
-
-actions_df = pd.DataFrame(
+action_df = pd.DataFrame(
     {
         "Action": [
             "RETRY_NOW",
@@ -818,55 +621,61 @@ actions_df = pd.DataFrame(
             "DO_NOTHING",
         ],
         "Count": [
-            retry_now,
-            retry_later,
-            review,
-            do_nothing,
+            int(
+                action_counts.get(
+                    "RETRY_NOW",
+                    0,
+                )
+            ),
+            int(
+                action_counts.get(
+                    "RETRY_LATER",
+                    0,
+                )
+            ),
+            int(
+                action_counts.get(
+                    "REVIEW",
+                    0,
+                )
+            ),
+            int(
+                action_counts.get(
+                    "DO_NOTHING",
+                    0,
+                )
+            ),
         ],
     }
 )
 
-
-chart_col, metric_col = st.columns(
+ac1, ac2 = st.columns(
     [2, 1]
 )
 
-with chart_col:
+with ac1:
 
     st.bar_chart(
-        actions_df.set_index(
+        action_df.set_index(
             "Action"
         )
     )
 
-with metric_col:
+with ac2:
 
-    st.metric(
-        "Retry Now",
-        retry_now,
-    )
+    for _, row in action_df.iterrows():
 
-    st.metric(
-        "Retry Later",
-        retry_later,
-    )
-
-    st.metric(
-        "Review",
-        review,
-    )
-
-    st.metric(
-        "Do Nothing",
-        do_nothing,
-    )
+        st.metric(
+            row["Action"],
+            int(row["Count"]),
+        )
 
 
 st.divider()
 
 
 # ============================================================
-# AI GOVERNANCE
+# GOVERNANCE
 # ============================================================
 
 st.markdown(
@@ -878,7 +687,7 @@ st.markdown(
 
 execution_modes = decisions_data.get(
     "execution_modes",
-    {}
+    {},
 )
 
 approval_required = int(
@@ -910,9 +719,7 @@ scheduled_actions = int(
 )
 
 
-g1, g2, g3, g4 = st.columns(
-    4
-)
+g1, g2, g3, g4 = st.columns(4)
 
 with g1:
 
@@ -965,7 +772,7 @@ if decision_records:
 
         policy = decision.get(
             "policy",
-            {}
+            {},
         )
 
         decision_rows.append(
@@ -1024,23 +831,16 @@ if decision_records:
                     policy.get(
                         "execution_mode"
                     ),
-
-                "Reason":
-                    decision.get(
-                        "decision_reason"
-                    ),
             }
         )
 
-    decisions_df = pd.DataFrame(
+    decision_df = pd.DataFrame(
         decision_rows
     )
 
-    f1, f2, f3 = st.columns(
-        3
-    )
+    col_a, col_b, col_c = st.columns(3)
 
-    with f1:
+    with col_a:
 
         selected_action = st.selectbox(
             "Action",
@@ -1053,7 +853,7 @@ if decision_records:
             ],
         )
 
-    with f2:
+    with col_b:
 
         selected_risk = st.selectbox(
             "Risk",
@@ -1065,23 +865,17 @@ if decision_records:
             ],
         )
 
-    with f3:
+    with col_c:
 
-        max_rows = st.slider(
+        row_limit = st.number_input(
             "Rows",
-            min_value=10,
-            max_value=max(
-                10,
-                len(decisions_df),
-            ),
-            value=min(
-                25,
-                len(decisions_df),
-            ),
-            step=5,
+            min_value=1,
+            max_value=1000,
+            value=10,
+            step=1,
         )
 
-    filtered_df = decisions_df.copy()
+    filtered_df = decision_df.copy()
 
     if selected_action != "ALL":
 
@@ -1099,7 +893,7 @@ if decision_records:
 
     st.dataframe(
         filtered_df.head(
-            max_rows
+            int(row_limit)
         ),
         use_container_width=True,
         hide_index=True,
@@ -1108,7 +902,7 @@ if decision_records:
 else:
 
     st.info(
-        "No AI decisions available for this payment source."
+        "No AI decisions available."
     )
 
 
@@ -1203,6 +997,9 @@ else:
     )
 
 
+st.divider()
+
+
 # ============================================================
 # DECISION DETAILS
 # ============================================================
@@ -1244,12 +1041,10 @@ if decision_records:
 
     policy = selected.get(
         "policy",
-        {}
+        {},
     )
 
-    d1, d2, d3, d4 = st.columns(
-        4
-    )
+    d1, d2, d3, d4 = st.columns(4)
 
     with d1:
 
@@ -1312,6 +1107,9 @@ if decision_records:
     )
 
 
+st.divider()
+
+
 # ============================================================
 # SIMULATION ANALYSIS
 # ============================================================
@@ -1325,7 +1123,7 @@ st.markdown(
 
 if decision_records:
 
-    selected_simulation = st.selectbox(
+    simulation_payment = st.selectbox(
         "Select payment for simulation",
         payment_options,
         key="simulation_payment",
@@ -1339,12 +1137,14 @@ if decision_records:
                 "payment_id"
             )
         )
-        == selected_simulation
+        == simulation_payment
     )
 
-    scenarios = simulation_decision.get(
-        "simulation_scenarios",
-        []
+    scenarios = (
+        simulation_decision.get(
+            "simulation_scenarios",
+            [],
+        )
     )
 
     simulation_df = pd.DataFrame(
@@ -1359,21 +1159,41 @@ if decision_records:
             hide_index=True,
         )
 
-        if "expected_recovery" in simulation_df.columns:
+        if {
+            "action",
+            "expected_recovery",
+        }.issubset(
+            simulation_df.columns
+        ):
+
+            chart_df = (
+                simulation_df[
+                    [
+                        "action",
+                        "expected_recovery",
+                    ]
+                ]
+                .set_index("action")
+            )
 
             st.bar_chart(
-                simulation_df.set_index(
-                    "action"
-                )[
-                    "expected_recovery"
-                ]
+                chart_df
             )
+
+    else:
+
+        st.info(
+            "No simulation scenarios available."
+        )
 
 else:
 
     st.info(
         "No simulation data available."
     )
+
+
+st.divider()
 
 
 # ============================================================
@@ -1389,12 +1209,12 @@ st.markdown(
 
 if verified_payments:
 
-    verification_df = pd.DataFrame(
+    verified_detail_df = pd.DataFrame(
         verified_payments
     )
 
     st.dataframe(
-        verification_df.tail(20).iloc[::-1],
+        verified_detail_df,
         use_container_width=True,
         hide_index=True,
     )
@@ -1402,8 +1222,11 @@ if verified_payments:
 else:
 
     st.info(
-        "No verified payment records found in the audit log."
+        "No verified payment records available."
     )
+
+
+st.divider()
 
 
 # ============================================================
@@ -1421,7 +1244,7 @@ if audit_events:
 
     audit_rows = []
 
-    for event in audit_events[-100:]:
+    for event in audit_events:
 
         audit_rows.append(
             {
@@ -1477,7 +1300,7 @@ if audit_events:
     )
 
     st.dataframe(
-        audit_df.iloc[::-1],
+        audit_df,
         use_container_width=True,
         hide_index=True,
     )
@@ -1485,15 +1308,16 @@ if audit_events:
 else:
 
     st.info(
-        "No audit events available yet."
+        "No audit events available."
     )
 
 
-# ============================================================
-# SYSTEM ARCHITECTURE
-# ============================================================
-
 st.divider()
+
+
+# ============================================================
+# ARCHITECTURE
+# ============================================================
 
 st.markdown(
     '<div class="section-title">'
@@ -1524,19 +1348,23 @@ Decision Agent
        ↓
 Action Guardrails
        ↓
-Audit Logging
+PostgreSQL
        ↓
-MerchantOps Dashboard
+MerchantOps API
+       ↓
+Streamlit Dashboard
 
 Razorpay Webhook
        ↓
 Signature Verification
        ↓
-Idempotency Check
+x-razorpay-event-id
+       ↓
+PostgreSQL Idempotency
        ↓
 Webhook Processor
        ↓
-MerchantOps AI Pipeline
+MerchantOps AI
        ↓
 Audit
 """,
