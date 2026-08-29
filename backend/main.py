@@ -21,6 +21,9 @@ from backend.agents.orchestrator import (
 from backend.database.audit import (
     AuditLogger,
 )
+from backend.database.postgres import (
+    PostgresDatabase,
+)
 from backend.database.webhook_events import (
     WebhookEventStore,
 )
@@ -55,9 +58,10 @@ app = FastAPI(
     description=(
         "AI-powered merchant intelligence, revenue recovery, "
         "risk analysis, simulation, decision automation, "
-        "payment verification, and governed payment operations."
+        "payment verification, webhook processing, and "
+        "governed payment operations."
     ),
-    version="1.7.0",
+    version="1.8.0",
 )
 
 
@@ -119,7 +123,9 @@ class PaymentVerificationRequest(
 # CONFIGURATION
 # ============================================================
 
-audit_logger = AuditLogger()
+audit_logger = (
+    AuditLogger()
+)
 
 webhook_processor = (
     RazorpayWebhookProcessor(
@@ -195,8 +201,11 @@ def empty_analysis(
         },
 
         "recovery_candidates": 0,
+
         "risk_candidates": 0,
+
         "simulated_candidates": 0,
+
         "decisions": 0,
 
         "action_counts": {
@@ -214,7 +223,9 @@ def empty_analysis(
         },
 
         "approval_required": 0,
+
         "allowed_actions": 0,
+
         "blocked_actions": 0,
 
         "decision_records": [],
@@ -256,7 +267,9 @@ def run_merchantops(
             orchestrator.run()
         )
 
-        result["source"] = source
+        result["source"] = (
+            source
+        )
 
         return result
 
@@ -295,6 +308,9 @@ def root() -> Dict[str, str]:
 
         "api_url":
             API_URL,
+
+        "database_health":
+            "/health/database",
     }
 
 
@@ -315,6 +331,121 @@ def health() -> Dict[str, str]:
         "service":
             "MerchantOps AI",
     }
+
+
+# ============================================================
+# DATABASE HEALTH
+# ============================================================
+
+@app.get(
+    "/health/database"
+)
+def database_health() -> Dict[str, Any]:
+    """
+    Check whether the production PostgreSQL database
+    is configured, reachable, and contains the required
+    MerchantOps tables.
+    """
+
+    try:
+
+        database_url = os.getenv(
+            "DATABASE_URL"
+        )
+
+        # ----------------------------------------------------
+        # Local development fallback
+        # ----------------------------------------------------
+
+        if not database_url:
+
+            return {
+                "api":
+                    "healthy",
+
+                "database":
+                    "not_configured",
+
+                "message":
+                    (
+                        "DATABASE_URL is not configured. "
+                        "Local file-based persistence is active."
+                    ),
+            }
+
+        # ----------------------------------------------------
+        # Connect to PostgreSQL
+        # ----------------------------------------------------
+
+        database = (
+            PostgresDatabase(
+                database_url
+            )
+        )
+
+        # ----------------------------------------------------
+        # Ensure tables exist
+        # ----------------------------------------------------
+
+        database.initialize()
+
+        # ----------------------------------------------------
+        # Test connection and count records
+        # ----------------------------------------------------
+
+        with database.connect() as connection:
+
+            with connection.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    SELECT
+                        (
+                            SELECT COUNT(*)
+                            FROM audit_logs
+                        ) AS audit_logs,
+
+                        (
+                            SELECT COUNT(*)
+                            FROM webhook_events
+                        ) AS webhook_events
+                    """
+                )
+
+                row = (
+                    cursor.fetchone()
+                )
+
+        return {
+            "api":
+                "healthy",
+
+            "database":
+                "healthy",
+
+            "audit_logs":
+                int(
+                    row["audit_logs"]
+                ),
+
+            "webhook_events":
+                int(
+                    row["webhook_events"]
+                ),
+        }
+
+    except Exception as exc:
+
+        return {
+            "api":
+                "healthy",
+
+            "database":
+                "unhealthy",
+
+            "error":
+                str(exc),
+        }
 
 
 # ============================================================
@@ -757,8 +888,8 @@ def payments(
             status == "captured"
         )
 
-        total_payments = (
-            len(df)
+        total_payments = len(
+            df
         )
 
         failed_payments = int(
@@ -930,7 +1061,7 @@ async def razorpay_webhook(
     try:
 
         # ----------------------------------------------------
-        # 1. Read exact raw body
+        # 1. Read exact raw request body
         # ----------------------------------------------------
 
         payload = (
@@ -1024,8 +1155,14 @@ async def razorpay_webhook(
 
         payment_entity = (
             payload_data
-            .get("payment", {})
-            .get("entity", {})
+            .get(
+                "payment",
+                {}
+            )
+            .get(
+                "entity",
+                {}
+            )
         )
 
         payment_id = (
@@ -1053,7 +1190,7 @@ async def razorpay_webhook(
         )
 
         # ----------------------------------------------------
-        # 6. Idempotency
+        # 6. Idempotency check
         # ----------------------------------------------------
 
         if event_id:
@@ -1176,7 +1313,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 10. Record event after successful processing
+        # 10. Record event AFTER successful processing
         # ----------------------------------------------------
 
         if event_id:
@@ -1193,7 +1330,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 11. Return webhook response
+        # 11. Return response
         # ----------------------------------------------------
 
         return {
