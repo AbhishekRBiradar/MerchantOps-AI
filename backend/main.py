@@ -1042,7 +1042,6 @@ def decisions(
             detail=str(exc),
         ) from exc
 
-
 # ============================================================
 # RAZORPAY WEBHOOK
 # ============================================================
@@ -1056,6 +1055,9 @@ async def razorpay_webhook(
     """
     Receive, verify, deduplicate, audit, and process
     Razorpay webhook events.
+
+    Razorpay webhook idempotency uses the
+    x-razorpay-event-id request header.
     """
 
     try:
@@ -1069,7 +1071,7 @@ async def razorpay_webhook(
         )
 
         # ----------------------------------------------------
-        # 2. Read Razorpay signature
+        # 2. Read Razorpay webhook signature
         # ----------------------------------------------------
 
         signature = (
@@ -1089,7 +1091,29 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 3. Verify webhook signature
+        # 3. Read Razorpay event ID
+        #
+        # This is the official idempotency identifier.
+        # ----------------------------------------------------
+
+        event_id = (
+            request.headers.get(
+                "x-razorpay-event-id"
+            )
+        )
+
+        if not event_id:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Missing "
+                    "x-razorpay-event-id header."
+                ),
+            )
+
+        # ----------------------------------------------------
+        # 4. Verify webhook signature BEFORE parsing body
         # ----------------------------------------------------
 
         verifier = (
@@ -1111,7 +1135,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 4. Parse JSON after verification
+        # 5. Parse JSON after signature verification
         # ----------------------------------------------------
 
         try:
@@ -1132,12 +1156,8 @@ async def razorpay_webhook(
             ) from exc
 
         # ----------------------------------------------------
-        # 5. Extract event information
+        # 6. Extract event information
         # ----------------------------------------------------
-
-        event_id = (
-            event.get("id")
-        )
 
         event_name = str(
             event.get(
@@ -1190,37 +1210,35 @@ async def razorpay_webhook(
         )
 
         # ----------------------------------------------------
-        # 6. Idempotency check
+        # 7. PostgreSQL idempotency check
         # ----------------------------------------------------
 
-        if event_id:
+        if webhook_event_store.exists(
+            event_id
+        ):
 
-            if webhook_event_store.exists(
-                event_id
-            ):
+            return {
+                "status":
+                    "duplicate",
 
-                return {
-                    "status":
-                        "duplicate",
+                "event":
+                    event_name,
 
-                    "event":
-                        event_name,
+                "event_id":
+                    event_id,
 
-                    "event_id":
-                        event_id,
+                "payment_id":
+                    payment_id,
 
-                    "payment_id":
-                        payment_id,
-
-                    "message":
-                        (
-                            "Webhook already "
-                            "processed."
-                        ),
-                }
+                "message":
+                    (
+                        "Webhook already "
+                        "processed."
+                    ),
+            }
 
         # ----------------------------------------------------
-        # 7. Audit webhook reception
+        # 8. Audit webhook reception
         # ----------------------------------------------------
 
         audit_event = (
@@ -1261,7 +1279,7 @@ async def razorpay_webhook(
         )
 
         # ----------------------------------------------------
-        # 8. Event classification
+        # 9. Event classification
         # ----------------------------------------------------
 
         if event_name == (
@@ -1295,7 +1313,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 9. Trigger MerchantOps
+        # 10. Trigger MerchantOps
         # ----------------------------------------------------
 
         merchantops_result = None
@@ -1313,24 +1331,22 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 10. Record event AFTER successful processing
+        # 11. Store idempotency event
         # ----------------------------------------------------
 
-        if event_id:
+        webhook_event_store.record(
+            event_id=
+                event_id,
 
-            webhook_event_store.record(
-                event_id=
-                    event_id,
+            event_name=
+                event_name,
 
-                event_name=
-                    event_name,
-
-                payment_id=
-                    payment_id,
-            )
+            payment_id=
+                payment_id,
+        )
 
         # ----------------------------------------------------
-        # 11. Return response
+        # 12. Return response
         # ----------------------------------------------------
 
         return {
