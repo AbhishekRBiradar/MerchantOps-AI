@@ -1,21 +1,66 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
+
+from backend.database.postgres import (
+    PostgresDatabase,
+)
 
 
 class WebhookEventStore:
     """
-    Simple file-backed idempotency store for webhook events.
+    Idempotency store.
+
+    Local development:
+        data/webhook_events.json
+
+    Production:
+        PostgreSQL webhook_events table
     """
 
     def __init__(
         self,
-        path: str = "data/webhook_events.json",
+        path: str = (
+            "data/webhook_events.json"
+        ),
+        database: Optional[
+            PostgresDatabase
+        ] = None,
     ) -> None:
 
         self.path = Path(path)
+
+        self.database = database
+
+        database_url = os.getenv(
+            "DATABASE_URL"
+        )
+
+        # ----------------------------------------------------
+        # PostgreSQL mode
+        # ----------------------------------------------------
+
+        if (
+            self.database is None
+            and database_url
+        ):
+
+            self.database = (
+                PostgresDatabase(
+                    database_url
+                )
+            )
+
+            self.database.initialize()
+
+            return
+
+        # ----------------------------------------------------
+        # Local file mode
+        # ----------------------------------------------------
 
         self.path.parent.mkdir(
             parents=True,
@@ -23,22 +68,33 @@ class WebhookEventStore:
         )
 
         if not self.path.exists():
+
             self.path.write_text(
                 "{}",
                 encoding="utf-8",
             )
 
-    def _load(self) -> dict[str, Any]:
+    # ========================================================
+    # LOCAL FILE HELPERS
+    # ========================================================
+
+    def _load(
+        self,
+    ) -> dict[str, Any]:
+
         try:
+
             return json.loads(
                 self.path.read_text(
                     encoding="utf-8"
                 )
             )
+
         except (
             json.JSONDecodeError,
             OSError,
         ):
+
             return {}
 
     def _save(
@@ -54,11 +110,32 @@ class WebhookEventStore:
             encoding="utf-8",
         )
 
+    # ========================================================
+    # CHECK EXISTENCE
+    # ========================================================
+
     def exists(
         self,
         event_id: str,
     ) -> bool:
-        return event_id in self._load()
+
+        if self.database is not None:
+
+            return (
+                self.database
+                .webhook_exists(
+                    event_id
+                )
+            )
+
+        return (
+            event_id
+            in self._load()
+        )
+
+    # ========================================================
+    # RECORD EVENT
+    # ========================================================
 
     def record(
         self,
@@ -67,11 +144,29 @@ class WebhookEventStore:
         payment_id: str | None = None,
     ) -> None:
 
+        if self.database is not None:
+
+            self.database.record_webhook(
+                event_id=
+                    event_id,
+
+                event_name=
+                    event_name,
+
+                payment_id=
+                    payment_id,
+            )
+
+            return
+
         data = self._load()
 
         data[event_id] = {
-            "event_name": event_name,
-            "payment_id": payment_id,
+            "event_name":
+                event_name,
+
+            "payment_id":
+                payment_id,
         }
 
         self._save(data)
