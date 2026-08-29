@@ -626,7 +626,7 @@ def get_webhook_events() -> Dict[str, Any]:
         )
 
         # ----------------------------------------------------
-        # PostgreSQL
+        # Production PostgreSQL
         # ----------------------------------------------------
 
         if database_url:
@@ -952,18 +952,18 @@ def verify_razorpay_payment(
         PaymentVerificationRequest,
 ) -> Dict[str, Any]:
     """
-    Verify the Razorpay Checkout payment signature.
+    Verify Razorpay Checkout payment signature.
 
-    On successful verification:
+    On success:
 
-        Razorpay
-            ↓
-        Signature verification
-            ↓
-        Payment API lookup
-            ↓
+        Razorpay Checkout
+              ↓
+        HMAC verification
+              ↓
+        Razorpay payment lookup
+              ↓
         PostgreSQL audit_logs
-            ↓
+              ↓
         /payments/verified
     """
 
@@ -992,7 +992,7 @@ def verify_razorpay_payment(
         )
 
         # ----------------------------------------------------
-        # 2. Invalid signature
+        # 2. Reject invalid signature
         # ----------------------------------------------------
 
         if not verified:
@@ -1042,7 +1042,7 @@ def verify_razorpay_payment(
             }
 
             # ------------------------------------------------
-            # Store rejected verification
+            # Production: PostgreSQL
             # ------------------------------------------------
 
             database_url = os.getenv(
@@ -1067,9 +1067,14 @@ def verify_razorpay_payment(
                     "postgresql"
                 )
 
+            # ------------------------------------------------
+            # Local: JSONL
+            # ------------------------------------------------
+
             else:
 
                 audit_logger.log_event(
+
                     event_type=
                         "PAYMENT_VERIFICATION",
 
@@ -1120,7 +1125,7 @@ def verify_razorpay_payment(
             }
 
         # ----------------------------------------------------
-        # 3. Fetch trusted payment
+        # 3. Fetch payment from Razorpay
         # ----------------------------------------------------
 
         payment = (
@@ -1130,7 +1135,7 @@ def verify_razorpay_payment(
         )
 
         # ----------------------------------------------------
-        # 4. Extract trusted fields
+        # 4. Extract trusted values
         # ----------------------------------------------------
 
         amount_paise = (
@@ -1232,7 +1237,7 @@ def verify_razorpay_payment(
         )
 
         # ----------------------------------------------------
-        # 5. Build verified audit event
+        # 5. Build VERIFIED audit event
         # ----------------------------------------------------
 
         verification_event = {
@@ -1301,7 +1306,7 @@ def verify_razorpay_payment(
         }
 
         # ----------------------------------------------------
-        # 6. Persist verified event
+        # 6. Persist verification event
         # ----------------------------------------------------
 
         database_url = os.getenv(
@@ -1331,6 +1336,7 @@ def verify_razorpay_payment(
         else:
 
             audit_logger.log_event(
+
                 event_type=
                     "PAYMENT_VERIFICATION",
 
@@ -1356,7 +1362,7 @@ def verify_razorpay_payment(
             )
 
         # ----------------------------------------------------
-        # 7. Return successful result
+        # 7. Return result
         # ----------------------------------------------------
 
         return {
@@ -1681,7 +1687,6 @@ async def razorpay_webhook(
     Razorpay webhook events.
 
     Idempotency uses:
-
         x-razorpay-event-id
     """
 
@@ -1694,7 +1699,7 @@ async def razorpay_webhook(
         payload = await request.body()
 
         # ----------------------------------------------------
-        # 2. Signature header
+        # 2. Razorpay signature
         # ----------------------------------------------------
 
         signature = (
@@ -1714,7 +1719,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 3. Event ID header
+        # 3. Event ID
         # ----------------------------------------------------
 
         event_id = (
@@ -1777,7 +1782,7 @@ async def razorpay_webhook(
             ) from exc
 
         # ----------------------------------------------------
-        # 6. Extract event information
+        # 6. Extract webhook data
         # ----------------------------------------------------
 
         event_name = str(
@@ -1941,7 +1946,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 10. Process MerchantOps
+        # 10. MerchantOps processing
         # ----------------------------------------------------
 
         merchantops_result = None
