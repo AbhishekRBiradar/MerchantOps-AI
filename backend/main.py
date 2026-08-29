@@ -28,7 +28,9 @@ from fastapi.middleware.cors import (
     CORSMiddleware,
 )
 
-from pydantic import BaseModel
+from pydantic import (
+    BaseModel,
+)
 
 from backend.agents.orchestrator import (
     MerchantOpsOrchestrator,
@@ -64,7 +66,7 @@ from razorpay.webhook import (
 
 
 # ============================================================
-# LOAD ENVIRONMENT VARIABLES
+# ENVIRONMENT
 # ============================================================
 
 load_dotenv()
@@ -84,7 +86,7 @@ app = FastAPI(
         "governed payment operations."
     ),
 
-    version="2.4.0",
+    version="2.5.0",
 )
 
 
@@ -120,7 +122,8 @@ cors_origins = [
 app.add_middleware(
     CORSMiddleware,
 
-    allow_origins=cors_origins,
+    allow_origins=
+        cors_origins,
 
     allow_credentials=False,
 
@@ -138,7 +141,9 @@ app.add_middleware(
 # REQUEST MODELS
 # ============================================================
 
-class PaymentVerificationRequest(BaseModel):
+class PaymentVerificationRequest(
+    BaseModel
+):
     """
     Razorpay Checkout verification payload.
     """
@@ -154,15 +159,16 @@ class PaymentVerificationRequest(BaseModel):
 # APPLICATION COMPONENTS
 # ============================================================
 
-audit_logger = AuditLogger()
-
+audit_logger = (
+    AuditLogger()
+)
 
 webhook_processor = (
     RazorpayWebhookProcessor(
-        audit_logger=audit_logger
+        audit_logger=
+            audit_logger
     )
 )
-
 
 webhook_event_store = (
     WebhookEventStore()
@@ -300,7 +306,7 @@ def empty_analysis(
 
 
 # ============================================================
-# RUN MERCHANTOPS
+# MERCHANTOPS PIPELINE
 # ============================================================
 
 def run_merchantops(
@@ -385,6 +391,9 @@ def root() -> Dict[str, str]:
         "database_health":
             "/health/database",
 
+        "activity_stats":
+            "/activity/stats",
+
         "audit":
             "/audit",
 
@@ -436,10 +445,6 @@ def database_health() -> Dict[str, Any]:
             "DATABASE_URL"
         )
 
-        # ----------------------------------------------------
-        # Local fallback
-        # ----------------------------------------------------
-
         if not database_url:
 
             return {
@@ -456,10 +461,6 @@ def database_health() -> Dict[str, Any]:
                         "Local file-based persistence is active."
                     ),
             }
-
-        # ----------------------------------------------------
-        # PostgreSQL
-        # ----------------------------------------------------
 
         database = (
             PostgresDatabase(
@@ -508,7 +509,147 @@ def database_health() -> Dict[str, Any]:
 
 
 # ============================================================
-# AUDIT API
+# ACTIVITY STATISTICS
+# ============================================================
+
+@app.get(
+    "/activity/stats"
+)
+def activity_stats() -> Dict[str, Any]:
+    """
+    Return aggregate MerchantOps activity statistics.
+
+    Production counts come directly from PostgreSQL.
+    """
+
+    try:
+
+        database_url = os.getenv(
+            "DATABASE_URL"
+        )
+
+        # ----------------------------------------------------
+        # Production
+        # ----------------------------------------------------
+
+        if database_url:
+
+            database = (
+                PostgresDatabase(
+                    database_url
+                )
+            )
+
+            database.initialize()
+
+            stats = (
+                database.get_activity_stats()
+            )
+
+            return {
+
+                "storage":
+                    "postgresql",
+
+                "verified_payments":
+                    stats[
+                        "verified_payments"
+                    ],
+
+                "verification_events":
+                    stats[
+                        "verification_events"
+                    ],
+
+                "webhook_events":
+                    stats[
+                        "webhook_events"
+                    ],
+
+                "webhook_processing":
+                    stats[
+                        "webhook_processing"
+                    ],
+            }
+
+        # ----------------------------------------------------
+        # Local fallback
+        # ----------------------------------------------------
+
+        events = (
+            audit_logger.read_events()
+        )
+
+        verification_events = [
+            event
+
+            for event in events
+
+            if event.get(
+                "event_type"
+            )
+            ==
+            "PAYMENT_VERIFICATION"
+        ]
+
+        verified_payments = [
+            event
+
+            for event in verification_events
+
+            if event.get(
+                "status"
+            )
+            ==
+            "VERIFIED"
+        ]
+
+        webhook_processing = [
+            event
+
+            for event in events
+
+            if event.get(
+                "event_type"
+            )
+            ==
+            "WEBHOOK_PROCESSING"
+        ]
+
+        return {
+
+            "storage":
+                "local",
+
+            "verified_payments":
+                len(
+                    verified_payments
+                ),
+
+            "verification_events":
+                len(
+                    verification_events
+                ),
+
+            "webhook_events":
+                0,
+
+            "webhook_processing":
+                len(
+                    webhook_processing
+                ),
+        }
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(exc),
+        ) from exc
+
+
+# ============================================================
+# AUDIT EVENTS
 # ============================================================
 
 @app.get(
@@ -526,12 +667,6 @@ def get_audit_events(
 ) -> Dict[str, Any]:
     """
     Return audit events.
-
-    Production:
-        PostgreSQL
-
-    Local:
-        JSONL
     """
 
     try:
@@ -539,10 +674,6 @@ def get_audit_events(
         database_url = os.getenv(
             "DATABASE_URL"
         )
-
-        # ----------------------------------------------------
-        # Production PostgreSQL
-        # ----------------------------------------------------
 
         if database_url:
 
@@ -572,10 +703,6 @@ def get_audit_events(
                 "storage":
                     "postgresql",
             }
-
-        # ----------------------------------------------------
-        # Local file
-        # ----------------------------------------------------
 
         events = (
             audit_logger.read_events()
@@ -608,7 +735,7 @@ def get_audit_events(
 
 
 # ============================================================
-# WEBHOOK EVENTS API
+# WEBHOOK EVENTS
 # ============================================================
 
 @app.get(
@@ -624,10 +751,6 @@ def get_webhook_events() -> Dict[str, Any]:
         database_url = os.getenv(
             "DATABASE_URL"
         )
-
-        # ----------------------------------------------------
-        # Production PostgreSQL
-        # ----------------------------------------------------
 
         if database_url:
 
@@ -656,10 +779,6 @@ def get_webhook_events() -> Dict[str, Any]:
                     "postgresql",
             }
 
-        # ----------------------------------------------------
-        # Local
-        # ----------------------------------------------------
-
         return {
 
             "count":
@@ -670,12 +789,6 @@ def get_webhook_events() -> Dict[str, Any]:
 
             "storage":
                 "local",
-
-            "message":
-                (
-                    "Webhook event API requires "
-                    "DATABASE_URL in production."
-                ),
         }
 
     except Exception as exc:
@@ -687,7 +800,7 @@ def get_webhook_events() -> Dict[str, Any]:
 
 
 # ============================================================
-# VERIFIED PAYMENTS API
+# VERIFIED PAYMENTS
 # ============================================================
 
 @app.get(
@@ -696,12 +809,6 @@ def get_webhook_events() -> Dict[str, Any]:
 def get_verified_payments() -> Dict[str, Any]:
     """
     Return successfully verified Razorpay payments.
-
-    Production:
-        PostgreSQL
-
-    Local:
-        JSONL
     """
 
     try:
@@ -709,10 +816,6 @@ def get_verified_payments() -> Dict[str, Any]:
         database_url = os.getenv(
             "DATABASE_URL"
         )
-
-        # ----------------------------------------------------
-        # Select persistence layer
-        # ----------------------------------------------------
 
         if database_url:
 
@@ -743,10 +846,6 @@ def get_verified_payments() -> Dict[str, Any]:
                 "local"
             )
 
-        # ----------------------------------------------------
-        # Extract verified events
-        # ----------------------------------------------------
-
         verified = []
 
         for event in events:
@@ -758,6 +857,7 @@ def get_verified_payments() -> Dict[str, Any]:
                 !=
                 "PAYMENT_VERIFICATION"
             ):
+
                 continue
 
             if (
@@ -767,6 +867,7 @@ def get_verified_payments() -> Dict[str, Any]:
                 !=
                 "VERIFIED"
             ):
+
                 continue
 
             payment_id = (
@@ -849,7 +950,9 @@ def get_verified_payments() -> Dict[str, Any]:
         return {
 
             "count":
-                len(verified),
+                len(
+                    verified
+                ),
 
             "payments":
                 verified,
@@ -883,7 +986,7 @@ def create_razorpay_order(
     ),
 ) -> Dict[str, Any]:
     """
-    Create a Razorpay Test Mode order.
+    Create Razorpay Test Mode order.
     """
 
     try:
@@ -904,9 +1007,7 @@ def create_razorpay_order(
         order = (
             client.create_order(
                 amount=amount,
-
                 currency="INR",
-
                 receipt=(
                     "merchantops_test_order"
                 ),
@@ -954,16 +1055,16 @@ def verify_razorpay_payment(
     """
     Verify Razorpay Checkout payment signature.
 
-    On success:
+    Successful flow:
 
-        Razorpay Checkout
-              ↓
-        HMAC verification
-              ↓
+        Checkout
+            ↓
+        Signature verification
+            ↓
         Razorpay payment lookup
-              ↓
+            ↓
         PostgreSQL audit_logs
-              ↓
+            ↓
         /payments/verified
     """
 
@@ -974,7 +1075,7 @@ def verify_razorpay_payment(
         )
 
         # ----------------------------------------------------
-        # 1. Verify Checkout signature
+        # 1. Verify signature
         # ----------------------------------------------------
 
         verified = (
@@ -992,7 +1093,7 @@ def verify_razorpay_payment(
         )
 
         # ----------------------------------------------------
-        # 2. Reject invalid signature
+        # 2. Rejected signature
         # ----------------------------------------------------
 
         if not verified:
@@ -1041,10 +1142,6 @@ def verify_razorpay_payment(
                 },
             }
 
-            # ------------------------------------------------
-            # Production: PostgreSQL
-            # ------------------------------------------------
-
             database_url = os.getenv(
                 "DATABASE_URL"
             )
@@ -1066,10 +1163,6 @@ def verify_razorpay_payment(
                 audit_storage = (
                     "postgresql"
                 )
-
-            # ------------------------------------------------
-            # Local: JSONL
-            # ------------------------------------------------
 
             else:
 
@@ -1125,7 +1218,7 @@ def verify_razorpay_payment(
             }
 
         # ----------------------------------------------------
-        # 3. Fetch payment from Razorpay
+        # 3. Fetch trusted payment
         # ----------------------------------------------------
 
         payment = (
@@ -1237,7 +1330,7 @@ def verify_razorpay_payment(
         )
 
         # ----------------------------------------------------
-        # 5. Build VERIFIED audit event
+        # 5. Build verification event
         # ----------------------------------------------------
 
         verification_event = {
@@ -1306,7 +1399,7 @@ def verify_razorpay_payment(
         }
 
         # ----------------------------------------------------
-        # 6. Persist verification event
+        # 6. Persist directly
         # ----------------------------------------------------
 
         database_url = os.getenv(
@@ -1362,7 +1455,7 @@ def verify_razorpay_payment(
             )
 
         # ----------------------------------------------------
-        # 7. Return result
+        # 7. Return
         # ----------------------------------------------------
 
         return {
@@ -1576,7 +1669,7 @@ def analyze(
     ),
 ) -> Dict[str, Any]:
     """
-    Run the complete MerchantOps AI analysis.
+    Run complete MerchantOps AI analysis.
     """
 
     try:
@@ -1624,44 +1717,28 @@ def decisions(
         return {
 
             "source":
-                result[
-                    "source"
-                ],
+                result["source"],
 
             "count":
-                result[
-                    "decisions"
-                ],
+                result["decisions"],
 
             "action_counts":
-                result[
-                    "action_counts"
-                ],
+                result["action_counts"],
 
             "execution_modes":
-                result[
-                    "execution_modes"
-                ],
+                result["execution_modes"],
 
             "approval_required":
-                result[
-                    "approval_required"
-                ],
+                result["approval_required"],
 
             "allowed_actions":
-                result[
-                    "allowed_actions"
-                ],
+                result["allowed_actions"],
 
             "blocked_actions":
-                result[
-                    "blocked_actions"
-                ],
+                result["blocked_actions"],
 
             "decisions":
-                result[
-                    "decision_records"
-                ],
+                result["decision_records"],
         }
 
     except Exception as exc:
@@ -1696,10 +1773,12 @@ async def razorpay_webhook(
         # 1. Read raw body
         # ----------------------------------------------------
 
-        payload = await request.body()
+        payload = (
+            await request.body()
+        )
 
         # ----------------------------------------------------
-        # 2. Razorpay signature
+        # 2. Signature
         # ----------------------------------------------------
 
         signature = (
@@ -1746,9 +1825,11 @@ async def razorpay_webhook(
             RazorpayWebhookVerifier()
         )
 
-        valid = verifier.verify(
-            payload,
-            signature,
+        valid = (
+            verifier.verify(
+                payload,
+                signature,
+            )
         )
 
         if not valid:
@@ -1761,7 +1842,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 5. Parse JSON
+        # 5. Parse webhook
         # ----------------------------------------------------
 
         try:
@@ -1782,7 +1863,7 @@ async def razorpay_webhook(
             ) from exc
 
         # ----------------------------------------------------
-        # 6. Extract webhook data
+        # 6. Extract event data
         # ----------------------------------------------------
 
         event_name = str(
@@ -1912,7 +1993,7 @@ async def razorpay_webhook(
         )
 
         # ----------------------------------------------------
-        # 9. Classify event
+        # 9. Classify webhook
         # ----------------------------------------------------
 
         if event_name == (
@@ -1946,7 +2027,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 10. MerchantOps processing
+        # 10. MerchantOps
         # ----------------------------------------------------
 
         merchantops_result = None
@@ -1965,7 +2046,7 @@ async def razorpay_webhook(
             )
 
         # ----------------------------------------------------
-        # 11. Record webhook event
+        # 11. Record webhook
         # ----------------------------------------------------
 
         webhook_event_store.record(
@@ -1981,7 +2062,7 @@ async def razorpay_webhook(
         )
 
         # ----------------------------------------------------
-        # 12. Return response
+        # 12. Return
         # ----------------------------------------------------
 
         return {

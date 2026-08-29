@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pandas as pd
 import requests
@@ -10,15 +10,10 @@ from dotenv import load_dotenv
 
 
 # ============================================================
-# LOAD ENVIRONMENT
+# ENVIRONMENT
 # ============================================================
 
 load_dotenv()
-
-
-# ============================================================
-# CONFIGURATION
-# ============================================================
 
 API_URL = os.getenv(
     "API_URL",
@@ -39,46 +34,7 @@ st.set_page_config(
 
 
 # ============================================================
-# API HELPER
-# ============================================================
-
-@st.cache_data(ttl=10)
-def fetch_api(
-    endpoint: str,
-) -> Dict[str, Any]:
-
-    response = requests.get(
-        f"{API_URL}{endpoint}",
-        timeout=60,
-    )
-
-    response.raise_for_status()
-
-    return response.json()
-
-
-# ============================================================
-# API POST HELPER
-# ============================================================
-
-def post_api(
-    endpoint: str,
-    payload: Dict[str, Any] | None = None,
-) -> Dict[str, Any]:
-
-    response = requests.post(
-        f"{API_URL}{endpoint}",
-        json=payload,
-        timeout=60,
-    )
-
-    response.raise_for_status()
-
-    return response.json()
-
-
-# ============================================================
-# PAGE HEADER
+# STYLING
 # ============================================================
 
 st.markdown(
@@ -109,6 +65,51 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
+# ============================================================
+# API HELPERS
+# ============================================================
+
+@st.cache_data(ttl=10)
+def fetch_api(
+    endpoint: str,
+) -> Dict[str, Any]:
+    """
+    GET data from MerchantOps API.
+    """
+
+    response = requests.get(
+        f"{API_URL}{endpoint}",
+        timeout=60,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+def post_api(
+    endpoint: str,
+    payload: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    POST data to MerchantOps API.
+    """
+
+    response = requests.post(
+        f"{API_URL}{endpoint}",
+        json=payload,
+        timeout=60,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+# ============================================================
+# HEADER
+# ============================================================
 
 st.markdown(
     '<div class="main-title">💳 MerchantOps AI</div>',
@@ -176,7 +177,7 @@ with st.sidebar:
 
 
 # ============================================================
-# API DATA LOADING
+# LOAD DATA
 # ============================================================
 
 try:
@@ -194,7 +195,7 @@ try:
     )
 
     audit_data = fetch_api(
-        "/audit?limit=100"
+        "/audit?limit=1000"
     )
 
     webhook_data = fetch_api(
@@ -216,8 +217,8 @@ except Exception as exc:
     )
 
     st.info(
-        "Make sure FastAPI is running or that the "
-        "production API URL is configured correctly."
+        "Check that the FastAPI backend is running "
+        "and API_URL is configured correctly."
     )
 
     st.stop()
@@ -229,22 +230,22 @@ except Exception as exc:
 
 audit_events = audit_data.get(
     "events",
-    []
+    [],
 )
 
 webhook_events = webhook_data.get(
     "events",
-    []
+    [],
 )
 
 verified_payments = verified_data.get(
     "payments",
-    []
+    [],
 )
 
 
 # ============================================================
-# API CONNECTION STATUS
+# CONNECTION STATUS
 # ============================================================
 
 status_col1, status_col2 = st.columns(
@@ -285,6 +286,7 @@ operations = analysis_data.get(
     {},
 )
 
+
 total_payments = int(
     payments_data.get(
         "total_payments",
@@ -294,6 +296,7 @@ total_payments = int(
         ),
     )
 )
+
 
 failed_payments = int(
     payments_data.get(
@@ -305,6 +308,7 @@ failed_payments = int(
     )
 )
 
+
 captured_payments = int(
     payments_data.get(
         "captured_payments",
@@ -314,6 +318,7 @@ captured_payments = int(
         ),
     )
 )
+
 
 failure_rate = float(
     payments_data.get(
@@ -325,6 +330,7 @@ failure_rate = float(
     )
 )
 
+
 revenue_at_risk = float(
     payments_data.get(
         "revenue_at_risk",
@@ -334,6 +340,7 @@ revenue_at_risk = float(
         ),
     )
 )
+
 
 success_rate = (
     captured_payments
@@ -396,35 +403,60 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
+# ------------------------------------------------------------
+# Correct event counting
+# ------------------------------------------------------------
+
+verification_events = [
+    event
+    for event in audit_events
+    if event.get(
+        "event_type"
+    ) == "PAYMENT_VERIFICATION"
+]
+
+
+webhook_processing_events = [
+    event
+    for event in audit_events
+    if event.get(
+        "event_type"
+    ) == "WEBHOOK_PROCESSING"
+]
+
+
+razorpay_webhook_events = [
+    event
+    for event in audit_events
+    if event.get(
+        "event_type"
+    ) == "RAZORPAY_WEBHOOK"
+]
+
+
 verification_count = len(
     verified_payments
 )
+
+
+verification_event_count = len(
+    verification_events
+)
+
+
+webhook_processing_count = len(
+    webhook_processing_events
+)
+
 
 webhook_count = len(
     webhook_events
 )
 
-verification_event_count = sum(
-    1
-    for event in audit_events
-    if event.get(
-        "event_type"
-    ) == "PAYMENT_VERIFICATION"
-)
-
-webhook_processing_count = sum(
-    1
-    for event in audit_events
-    if event.get(
-        "event_type"
-    ) in {
-        "RAZORPAY_WEBHOOK",
-        "WEBHOOK_PROCESSING",
-    }
-)
-
 
 r1, r2, r3, r4 = st.columns(4)
+
 
 with r1:
 
@@ -433,6 +465,7 @@ with r1:
         verification_count,
     )
 
+
 with r2:
 
     st.metric(
@@ -440,12 +473,14 @@ with r2:
         verification_event_count,
     )
 
+
 with r3:
 
     st.metric(
         "Webhook Events",
         webhook_count,
     )
+
 
 with r4:
 
@@ -456,12 +491,13 @@ with r4:
 
 
 # ============================================================
-# VERIFIED PAYMENTS TABLE
+# RECENTLY VERIFIED PAYMENTS
 # ============================================================
 
 st.markdown(
     "#### Recently Verified Payments"
 )
+
 
 if verified_payments:
 
@@ -496,6 +532,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 if webhook_events:
 
     webhook_df = pd.DataFrame(
@@ -529,12 +566,14 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 recovery_candidates = int(
     analysis_data.get(
         "recovery_candidates",
         0,
     )
 )
+
 
 decision_count = int(
     analysis_data.get(
@@ -546,10 +585,12 @@ decision_count = int(
     )
 )
 
+
 decision_records = decisions_data.get(
     "decisions",
     []
 )
+
 
 expected_recovery = sum(
     float(
@@ -557,12 +598,14 @@ expected_recovery = sum(
             "expected_recovery",
             0,
         )
+        or 0
     )
     for decision in decision_records
 )
 
 
 s1, s2, s3, s4 = st.columns(4)
+
 
 with s1:
 
@@ -571,6 +614,7 @@ with s1:
         f"₹{revenue_at_risk:,.0f}",
     )
 
+
 with s2:
 
     st.metric(
@@ -578,12 +622,14 @@ with s2:
         recovery_candidates,
     )
 
+
 with s3:
 
     st.metric(
         "Expected Recovery",
         f"₹{expected_recovery:,.0f}",
     )
+
 
 with s4:
 
@@ -607,10 +653,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 action_counts = decisions_data.get(
     "action_counts",
     {},
 )
+
 
 action_df = pd.DataFrame(
     {
@@ -620,25 +668,30 @@ action_df = pd.DataFrame(
             "REVIEW",
             "DO_NOTHING",
         ],
+
         "Count": [
+
             int(
                 action_counts.get(
                     "RETRY_NOW",
                     0,
                 )
             ),
+
             int(
                 action_counts.get(
                     "RETRY_LATER",
                     0,
                 )
             ),
+
             int(
                 action_counts.get(
                     "REVIEW",
                     0,
                 )
             ),
+
             int(
                 action_counts.get(
                     "DO_NOTHING",
@@ -649,9 +702,11 @@ action_df = pd.DataFrame(
     }
 )
 
+
 ac1, ac2 = st.columns(
     [2, 1]
 )
+
 
 with ac1:
 
@@ -661,13 +716,16 @@ with ac1:
         )
     )
 
+
 with ac2:
 
     for _, row in action_df.iterrows():
 
         st.metric(
             row["Action"],
-            int(row["Count"]),
+            int(
+                row["Count"]
+            ),
         )
 
 
@@ -685,10 +743,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 execution_modes = decisions_data.get(
     "execution_modes",
     {},
 )
+
 
 approval_required = int(
     decisions_data.get(
@@ -697,6 +757,7 @@ approval_required = int(
     )
 )
 
+
 allowed_actions = int(
     decisions_data.get(
         "allowed_actions",
@@ -704,12 +765,14 @@ allowed_actions = int(
     )
 )
 
+
 blocked_actions = int(
     decisions_data.get(
         "blocked_actions",
         0,
     )
 )
+
 
 scheduled_actions = int(
     execution_modes.get(
@@ -721,12 +784,14 @@ scheduled_actions = int(
 
 g1, g2, g3, g4 = st.columns(4)
 
+
 with g1:
 
     st.metric(
         "Merchant Approval",
         approval_required,
     )
+
 
 with g2:
 
@@ -735,12 +800,14 @@ with g2:
         allowed_actions,
     )
 
+
 with g3:
 
     st.metric(
         "Blocked Actions",
         blocked_actions,
     )
+
 
 with g4:
 
@@ -764,6 +831,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 if decision_records:
 
     decision_rows = []
@@ -777,6 +845,7 @@ if decision_records:
 
         decision_rows.append(
             {
+
                 "Payment ID":
                     decision.get(
                         "payment_id"
@@ -793,6 +862,7 @@ if decision_records:
                             "amount",
                             0,
                         )
+                        or 0
                     ),
 
                 "Risk":
@@ -811,6 +881,7 @@ if decision_records:
                             "expected_recovery",
                             0,
                         )
+                        or 0
                     ),
 
                 "Decision":
@@ -838,7 +909,9 @@ if decision_records:
         decision_rows
     )
 
+
     col_a, col_b, col_c = st.columns(3)
+
 
     with col_a:
 
@@ -853,6 +926,7 @@ if decision_records:
             ],
         )
 
+
     with col_b:
 
         selected_risk = st.selectbox(
@@ -865,6 +939,7 @@ if decision_records:
             ],
         )
 
+
     with col_c:
 
         row_limit = st.number_input(
@@ -875,21 +950,27 @@ if decision_records:
             step=1,
         )
 
+
     filtered_df = decision_df.copy()
+
 
     if selected_action != "ALL":
 
         filtered_df = filtered_df[
             filtered_df["Decision"]
-            == selected_action
+            ==
+            selected_action
         ]
+
 
     if selected_risk != "ALL":
 
         filtered_df = filtered_df[
             filtered_df["Risk"]
-            == selected_risk
+            ==
+            selected_risk
         ]
+
 
     st.dataframe(
         filtered_df.head(
@@ -920,7 +1001,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 approval_rows = []
+
 
 for decision in decision_records:
 
@@ -931,6 +1014,7 @@ for decision in decision_records:
 
         approval_rows.append(
             {
+
                 "Payment ID":
                     decision.get(
                         "payment_id"
@@ -1011,6 +1095,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 if decision_records:
 
     payment_options = [
@@ -1022,11 +1107,13 @@ if decision_records:
         for decision in decision_records
     ]
 
+
     selected_payment = st.selectbox(
         "Select a payment",
         payment_options,
         key="decision_payment",
     )
+
 
     selected = next(
         decision
@@ -1039,40 +1126,47 @@ if decision_records:
         == selected_payment
     )
 
+
     policy = selected.get(
         "policy",
         {},
     )
 
+
     d1, d2, d3, d4 = st.columns(4)
+
 
     with d1:
 
         st.metric(
             "Amount",
-            f"₹{float(selected.get('amount', 0)):,.0f}",
+            f"₹{float(selected.get('amount', 0) or 0):,.0f}",
         )
+
 
     with d2:
 
         st.metric(
             "Risk Score",
-            f"{float(selected.get('risk_score', 0)):.2f}",
+            f"{float(selected.get('risk_score', 0) or 0):.2f}",
         )
+
 
     with d3:
 
         st.metric(
             "Expected Recovery",
-            f"₹{float(selected.get('expected_recovery', 0)):,.0f}",
+            f"₹{float(selected.get('expected_recovery', 0) or 0):,.0f}",
         )
+
 
     with d4:
 
         st.metric(
             "Confidence",
-            f"{float(selected.get('decision_confidence', 0)) * 100:.1f}%",
+            f"{float(selected.get('decision_confidence', 0) or 0) * 100:.1f}%",
         )
+
 
     st.write(
         f"**Payment:** {selected.get('payment_id')}"
@@ -1111,7 +1205,7 @@ st.divider()
 
 
 # ============================================================
-# SIMULATION ANALYSIS
+# SIMULATION
 # ============================================================
 
 st.markdown(
@@ -1121,6 +1215,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 if decision_records:
 
     simulation_payment = st.selectbox(
@@ -1128,6 +1223,7 @@ if decision_records:
         payment_options,
         key="simulation_payment",
     )
+
 
     simulation_decision = next(
         decision
@@ -1140,6 +1236,7 @@ if decision_records:
         == simulation_payment
     )
 
+
     scenarios = (
         simulation_decision.get(
             "simulation_scenarios",
@@ -1147,9 +1244,11 @@ if decision_records:
         )
     )
 
+
     simulation_df = pd.DataFrame(
         scenarios
     )
+
 
     if not simulation_df.empty:
 
@@ -1158,6 +1257,7 @@ if decision_records:
             use_container_width=True,
             hide_index=True,
         )
+
 
         if {
             "action",
@@ -1173,7 +1273,9 @@ if decision_records:
                         "expected_recovery",
                     ]
                 ]
-                .set_index("action")
+                .set_index(
+                    "action"
+                )
             )
 
             st.bar_chart(
@@ -1206,6 +1308,7 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True,
 )
+
 
 if verified_payments:
 
@@ -1240,14 +1343,17 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 if audit_events:
 
     audit_rows = []
+
 
     for event in audit_events:
 
         audit_rows.append(
             {
+
                 "Timestamp":
                     event.get(
                         "timestamp"
@@ -1295,9 +1401,11 @@ if audit_events:
             }
         )
 
+
     audit_df = pd.DataFrame(
         audit_rows
     )
+
 
     st.dataframe(
         audit_df,
@@ -1325,6 +1433,7 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True,
 )
+
 
 st.code(
     """
