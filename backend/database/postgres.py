@@ -2,21 +2,26 @@ from __future__ import annotations
 
 import os
 
-from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Optional
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+)
 
 import psycopg
+
+from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 
 class PostgresDatabase:
     """
-    PostgreSQL persistence layer for MerchantOps AI.
+    PostgreSQL database helper for MerchantOps AI.
 
-    Stores:
-        - audit events
-        - Razorpay webhook events
+    The connection string is read from:
 
-    Used in production when DATABASE_URL is configured.
+        DATABASE_URL
     """
 
     def __init__(
@@ -32,109 +37,81 @@ class PostgresDatabase:
         )
 
         if not self.database_url:
+
             raise ValueError(
-                "DATABASE_URL is not configured."
+                "DATABASE_URL is missing."
             )
 
-        self._initialized = False
-
     # ========================================================
-    # DATABASE CONNECTION
+    # CONNECTION
     # ========================================================
 
-    @contextmanager
-    def connection(
-        self,
-    ) -> Iterator[
-        psycopg.Connection
-    ]:
+    def connect(self):
         """
-        Open a PostgreSQL connection.
+        Create a PostgreSQL connection using dict rows.
         """
 
-        conn = psycopg.connect(
-            self.database_url
+        return psycopg.connect(
+            self.database_url,
+            row_factory=dict_row,
         )
 
-        try:
-
-            yield conn
-
-            conn.commit()
-
-        except Exception:
-
-            conn.rollback()
-
-            raise
-
-        finally:
-
-            conn.close()
-
     # ========================================================
-    # INITIALIZE DATABASE
+    # DATABASE INITIALIZATION
     # ========================================================
 
     def initialize(self) -> None:
         """
-        Create required tables and indexes if they do not exist.
+        Create MerchantOps persistence tables and indexes
+        when they do not already exist.
         """
 
-        if self._initialized:
-            return
+        with self.connect() as connection:
 
-        with self.connection() as conn:
-
-            with conn.cursor() as cursor:
+            with connection.cursor() as cursor:
 
                 # ------------------------------------------------
-                # Audit events
+                # AUDIT LOGS
                 # ------------------------------------------------
 
                 cursor.execute(
                     """
                     CREATE TABLE IF NOT EXISTS audit_logs (
                         id BIGSERIAL PRIMARY KEY,
+
                         timestamp TIMESTAMPTZ NOT NULL,
+
                         event_type TEXT NOT NULL,
+
                         payment_id TEXT,
+
                         decision TEXT,
+
                         action TEXT,
+
                         risk_level TEXT,
+
                         approval_required BOOLEAN,
+
                         execution_mode TEXT,
-                        status TEXT,
-                        details JSONB NOT NULL DEFAULT '{}'::jsonb
-                    )
+
+                        status TEXT NOT NULL,
+
+                        details JSONB NOT NULL
+                            DEFAULT '{}'::jsonb
+                    );
                     """
                 )
 
                 # ------------------------------------------------
-                # Webhook events
-                # ------------------------------------------------
-
-                cursor.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS webhook_events (
-                        event_id TEXT PRIMARY KEY,
-                        event_name TEXT NOT NULL,
-                        payment_id TEXT,
-                        created_at TIMESTAMPTZ NOT NULL
-                            DEFAULT CURRENT_TIMESTAMP
-                    )
-                    """
-                )
-
-                # ------------------------------------------------
-                # Audit indexes
+                # AUDIT INDEXES
                 # ------------------------------------------------
 
                 cursor.execute(
                     """
                     CREATE INDEX IF NOT EXISTS
-                    idx_audit_logs_timestamp
-                    ON audit_logs(timestamp DESC)
+                    idx_audit_logs_payment_id
+                    ON audit_logs(payment_id);
                     """
                 )
 
@@ -142,42 +119,61 @@ class PostgresDatabase:
                     """
                     CREATE INDEX IF NOT EXISTS
                     idx_audit_logs_event_type
-                    ON audit_logs(event_type)
+                    ON audit_logs(event_type);
                     """
                 )
 
                 cursor.execute(
                     """
                     CREATE INDEX IF NOT EXISTS
-                    idx_audit_logs_payment_id
-                    ON audit_logs(payment_id)
+                    idx_audit_logs_timestamp
+                    ON audit_logs(timestamp DESC);
                     """
                 )
 
                 # ------------------------------------------------
-                # Webhook indexes
+                # WEBHOOK EVENTS
                 # ------------------------------------------------
 
                 cursor.execute(
                     """
-                    CREATE INDEX IF NOT EXISTS
-                    idx_webhook_events_created_at
-                    ON webhook_events(created_at DESC)
+                    CREATE TABLE IF NOT EXISTS webhook_events (
+                        event_id TEXT PRIMARY KEY,
+
+                        event_name TEXT NOT NULL,
+
+                        payment_id TEXT,
+
+                        created_at TIMESTAMPTZ NOT NULL
+                            DEFAULT NOW()
+                    );
                     """
                 )
+
+                # ------------------------------------------------
+                # WEBHOOK INDEXES
+                # ------------------------------------------------
 
                 cursor.execute(
                     """
                     CREATE INDEX IF NOT EXISTS
                     idx_webhook_events_payment_id
-                    ON webhook_events(payment_id)
+                    ON webhook_events(payment_id);
                     """
                 )
 
-        self._initialized = True
+                cursor.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS
+                    idx_webhook_events_created_at
+                    ON webhook_events(created_at DESC);
+                    """
+                )
+
+            connection.commit()
 
     # ========================================================
-    # AUDIT INSERT
+    # INSERT AUDIT EVENT
     # ========================================================
 
     def insert_audit_event(
@@ -185,12 +181,24 @@ class PostgresDatabase:
         event: Dict[str, Any],
     ) -> None:
         """
-        Insert one audit event.
+        Insert one audit event into PostgreSQL.
+
+        `details` is explicitly wrapped with Jsonb so nested
+        Python dictionaries/lists are safely adapted to the
+        PostgreSQL JSONB column.
         """
 
-        with self.connection() as conn:
+        details = event.get(
+            "details",
+            {},
+        )
 
-            with conn.cursor() as cursor:
+        if details is None:
+            details = {}
+
+        with self.connect() as connection:
+
+            with connection.cursor() as cursor:
 
                 cursor.execute(
                     """
@@ -207,61 +215,71 @@ class PostgresDatabase:
                         details
                     )
                     VALUES (
-                        %s,
-                        %s,
-                        %s,
-                        %s,
-                        %s,
-                        %s,
-                        %s,
-                        %s,
-                        %s,
-                        %s
+                        %(timestamp)s,
+                        %(event_type)s,
+                        %(payment_id)s,
+                        %(decision)s,
+                        %(action)s,
+                        %(risk_level)s,
+                        %(approval_required)s,
+                        %(execution_mode)s,
+                        %(status)s,
+                        %(details)s
                     )
                     """,
-                    (
-                        event.get(
-                            "timestamp"
-                        ),
+                    {
+                        "timestamp":
+                            event.get(
+                                "timestamp"
+                            ),
 
-                        event.get(
-                            "event_type"
-                        ),
+                        "event_type":
+                            event.get(
+                                "event_type"
+                            ),
 
-                        event.get(
-                            "payment_id"
-                        ),
+                        "payment_id":
+                            event.get(
+                                "payment_id"
+                            ),
 
-                        event.get(
-                            "decision"
-                        ),
+                        "decision":
+                            event.get(
+                                "decision"
+                            ),
 
-                        event.get(
-                            "action"
-                        ),
+                        "action":
+                            event.get(
+                                "action"
+                            ),
 
-                        event.get(
-                            "risk_level"
-                        ),
+                        "risk_level":
+                            event.get(
+                                "risk_level"
+                            ),
 
-                        event.get(
-                            "approval_required"
-                        ),
+                        "approval_required":
+                            event.get(
+                                "approval_required"
+                            ),
 
-                        event.get(
-                            "execution_mode"
-                        ),
+                        "execution_mode":
+                            event.get(
+                                "execution_mode"
+                            ),
 
-                        event.get(
-                            "status"
-                        ),
+                        "status":
+                            event.get(
+                                "status",
+                                "RECORDED",
+                            ),
 
-                        event.get(
-                            "details",
-                            {},
-                        ),
-                    ),
+                        "details":
+                            Jsonb(details),
+                    },
                 )
+
+            connection.commit()
 
     # ========================================================
     # READ ALL AUDIT EVENTS
@@ -271,12 +289,12 @@ class PostgresDatabase:
         self,
     ) -> List[Dict[str, Any]]:
         """
-        Return all audit events, newest first.
+        Return all audit events in ascending database order.
         """
 
-        with self.connection() as conn:
+        with self.connect() as connection:
 
-            with conn.cursor() as cursor:
+            with connection.cursor() as cursor:
 
                 cursor.execute(
                     """
@@ -293,22 +311,32 @@ class PostgresDatabase:
                         status,
                         details
                     FROM audit_logs
-                    ORDER BY timestamp DESC, id DESC
+                    ORDER BY id ASC
                     """
                 )
 
-                rows = (
-                    cursor.fetchall()
-                )
+                rows = cursor.fetchall()
 
-        events = []
+        events: List[
+            Dict[str, Any]
+        ] = []
 
         for row in rows:
 
-            events.append(
-                self._audit_row_to_dict(
-                    row
+            event = dict(row)
+
+            if event.get(
+                "timestamp"
+            ):
+
+                event["timestamp"] = (
+                    event[
+                        "timestamp"
+                    ].isoformat()
                 )
+
+            events.append(
+                event
             )
 
         return events
@@ -322,7 +350,7 @@ class PostgresDatabase:
         limit: int = 100,
     ) -> List[Dict[str, Any]]:
         """
-        Return the most recent audit events.
+        Return the newest audit events first.
         """
 
         limit = max(
@@ -333,9 +361,9 @@ class PostgresDatabase:
             ),
         )
 
-        with self.connection() as conn:
+        with self.connect() as connection:
 
-            with conn.cursor() as cursor:
+            with connection.cursor() as cursor:
 
                 cursor.execute(
                     """
@@ -352,7 +380,9 @@ class PostgresDatabase:
                         status,
                         details
                     FROM audit_logs
-                    ORDER BY timestamp DESC, id DESC
+                    ORDER BY
+                        timestamp DESC,
+                        id DESC
                     LIMIT %s
                     """,
                     (
@@ -360,157 +390,47 @@ class PostgresDatabase:
                     ),
                 )
 
-                rows = (
-                    cursor.fetchall()
-                )
+                rows = cursor.fetchall()
 
-        events = []
+        events: List[
+            Dict[str, Any]
+        ] = []
 
         for row in rows:
 
-            events.append(
-                self._audit_row_to_dict(
-                    row
+            event = dict(row)
+
+            if event.get(
+                "timestamp"
+            ):
+
+                event["timestamp"] = (
+                    event[
+                        "timestamp"
+                    ].isoformat()
                 )
+
+            events.append(
+                event
             )
 
         return events
 
     # ========================================================
-    # AUDIT ROW CONVERSION
-    # ========================================================
-
-    @staticmethod
-    def _audit_row_to_dict(
-        row: Any,
-    ) -> Dict[str, Any]:
-        """
-        Convert PostgreSQL audit row to API dictionary.
-        """
-
-        (
-            event_id,
-            timestamp,
-            event_type,
-            payment_id,
-            decision,
-            action,
-            risk_level,
-            approval_required,
-            execution_mode,
-            status,
-            details,
-        ) = row
-
-        return {
-
-            "id":
-                event_id,
-
-            "timestamp":
-                timestamp.isoformat()
-                if hasattr(
-                    timestamp,
-                    "isoformat",
-                )
-                else timestamp,
-
-            "event_type":
-                event_type,
-
-            "payment_id":
-                payment_id,
-
-            "decision":
-                decision,
-
-            "action":
-                action,
-
-            "risk_level":
-                risk_level,
-
-            "approval_required":
-                approval_required,
-
-            "execution_mode":
-                execution_mode,
-
-            "status":
-                status,
-
-            "details":
-                details or {},
-        }
-
-    # ========================================================
-    # WEBHOOK INSERT
-    # ========================================================
-
-    def insert_webhook_event(
-        self,
-        event_id: str,
-        event_name: str,
-        payment_id: Optional[str] = None,
-    ) -> bool:
-        """
-        Store a webhook event.
-
-        Returns:
-            True  -> inserted
-            False -> duplicate
-        """
-
-        with self.connection() as conn:
-
-            with conn.cursor() as cursor:
-
-                cursor.execute(
-                    """
-                    INSERT INTO webhook_events (
-                        event_id,
-                        event_name,
-                        payment_id
-                    )
-                    VALUES (
-                        %s,
-                        %s,
-                        %s
-                    )
-                    ON CONFLICT (
-                        event_id
-                    )
-                    DO NOTHING
-                    RETURNING event_id
-                    """,
-                    (
-                        event_id,
-                        event_name,
-                        payment_id,
-                    ),
-                )
-
-                row = (
-                    cursor.fetchone()
-                )
-
-        return row is not None
-
-    # ========================================================
     # WEBHOOK EXISTS
     # ========================================================
 
-    def webhook_event_exists(
+    def webhook_exists(
         self,
         event_id: str,
     ) -> bool:
         """
-        Check whether a webhook event exists.
+        Return True when a webhook event already exists.
         """
 
-        with self.connection() as conn:
+        with self.connect() as connection:
 
-            with conn.cursor() as cursor:
+            with connection.cursor() as cursor:
 
                 cursor.execute(
                     """
@@ -530,6 +450,52 @@ class PostgresDatabase:
                 )
 
     # ========================================================
+    # RECORD WEBHOOK
+    # ========================================================
+
+    def record_webhook(
+        self,
+        event_id: str,
+        event_name: str,
+        payment_id: Optional[str] = None,
+    ) -> None:
+        """
+        Record a webhook event.
+
+        Duplicate event IDs are ignored.
+        """
+
+        with self.connect() as connection:
+
+            with connection.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    INSERT INTO webhook_events (
+                        event_id,
+                        event_name,
+                        payment_id
+                    )
+                    VALUES (
+                        %s,
+                        %s,
+                        %s
+                    )
+                    ON CONFLICT (
+                        event_id
+                    )
+                    DO NOTHING
+                    """,
+                    (
+                        event_id,
+                        event_name,
+                        payment_id,
+                    ),
+                )
+
+            connection.commit()
+
+    # ========================================================
     # READ WEBHOOK EVENTS
     # ========================================================
 
@@ -537,12 +503,12 @@ class PostgresDatabase:
         self,
     ) -> List[Dict[str, Any]]:
         """
-        Return stored webhook events, newest first.
+        Return all stored webhook events, newest first.
         """
 
-        with self.connection() as conn:
+        with self.connect() as connection:
 
-            with conn.cursor() as cursor:
+            with connection.cursor() as cursor:
 
                 cursor.execute(
                     """
@@ -552,47 +518,33 @@ class PostgresDatabase:
                         payment_id,
                         created_at
                     FROM webhook_events
-                    ORDER BY created_at DESC
+                    ORDER BY
+                        created_at DESC
                     """
                 )
 
-                rows = (
-                    cursor.fetchall()
-                )
+                rows = cursor.fetchall()
 
-        events = []
+        events: List[
+            Dict[str, Any]
+        ] = []
 
         for row in rows:
 
-            (
-                event_id,
-                event_name,
-                payment_id,
-                created_at,
-            ) = row
+            event = dict(row)
+
+            if event.get(
+                "created_at"
+            ):
+
+                event["created_at"] = (
+                    event[
+                        "created_at"
+                    ].isoformat()
+                )
 
             events.append(
-                {
-
-                    "event_id":
-                        event_id,
-
-                    "event_name":
-                        event_name,
-
-                    "payment_id":
-                        payment_id,
-
-                    "created_at":
-                        (
-                            created_at.isoformat()
-                            if hasattr(
-                                created_at,
-                                "isoformat",
-                            )
-                            else created_at
-                        ),
-                }
+                event
             )
 
         return events
@@ -605,12 +557,12 @@ class PostgresDatabase:
         self,
     ) -> Dict[str, int]:
         """
-        Return basic table counts.
+        Return basic PostgreSQL record counts.
         """
 
-        with self.connection() as conn:
+        with self.connect() as connection:
 
-            with conn.cursor() as cursor:
+            with connection.cursor() as cursor:
 
                 cursor.execute(
                     """
@@ -619,8 +571,10 @@ class PostgresDatabase:
                     """
                 )
 
-                audit_count = int(
-                    cursor.fetchone()[0]
+                audit_logs = int(
+                    cursor.fetchone()[
+                        0
+                    ]
                     or 0
                 )
 
@@ -631,40 +585,43 @@ class PostgresDatabase:
                     """
                 )
 
-                webhook_count = int(
-                    cursor.fetchone()[0]
+                webhook_events = int(
+                    cursor.fetchone()[
+                        0
+                    ]
                     or 0
                 )
 
         return {
+
             "audit_logs":
-                audit_count,
+                audit_logs,
 
             "webhook_events":
-                webhook_count,
+                webhook_events,
         }
 
     # ========================================================
-    # ACTIVITY STATS
+    # ACTIVITY STATISTICS
     # ========================================================
 
     def get_activity_stats(
         self,
     ) -> Dict[str, int]:
         """
-        Return aggregate MerchantOps activity counts.
+        Return authoritative activity counts directly from
+        PostgreSQL.
 
-        These values are calculated directly by PostgreSQL,
-        avoiding dashboard-side counting of only the latest
-        audit records.
+        This avoids counting only the latest 1000 audit rows
+        inside the Streamlit dashboard.
         """
 
-        with self.connection() as conn:
+        with self.connect() as connection:
 
-            with conn.cursor() as cursor:
+            with connection.cursor() as cursor:
 
                 # ------------------------------------------------
-                # Audit-based counts
+                # AUDIT COUNTS
                 # ------------------------------------------------
 
                 cursor.execute(
@@ -691,14 +648,25 @@ class PostgresDatabase:
                     """
                 )
 
-                (
-                    verification_events,
-                    verified_payments,
-                    webhook_processing,
-                ) = cursor.fetchone()
+                row = cursor.fetchone()
+
+                verification_events = int(
+                    row[0]
+                    or 0
+                )
+
+                verified_payments = int(
+                    row[1]
+                    or 0
+                )
+
+                webhook_processing = int(
+                    row[2]
+                    or 0
+                )
 
                 # ------------------------------------------------
-                # Webhook table count
+                # WEBHOOK EVENT COUNT
                 # ------------------------------------------------
 
                 cursor.execute(
@@ -708,33 +676,60 @@ class PostgresDatabase:
                     """
                 )
 
-                webhook_events = (
-                    cursor.fetchone()[0]
+                webhook_events = int(
+                    cursor.fetchone()[
+                        0
+                    ]
+                    or 0
                 )
 
         return {
 
             "verified_payments":
-                int(
-                    verified_payments
-                    or 0
-                ),
+                verified_payments,
 
             "verification_events":
-                int(
-                    verification_events
-                    or 0
-                ),
+                verification_events,
 
             "webhook_events":
-                int(
-                    webhook_events
-                    or 0
-                ),
+                webhook_events,
 
             "webhook_processing":
-                int(
-                    webhook_processing
-                    or 0
-                ),
+                webhook_processing,
         }
+
+    # ========================================================
+    # COMPATIBILITY ALIAS
+    # ========================================================
+
+    def insert_webhook_event(
+        self,
+        event_id: str,
+        event_name: str,
+        payment_id: Optional[str] = None,
+    ) -> None:
+        """
+        Compatibility alias for webhook persistence.
+        """
+
+        self.record_webhook(
+            event_id=event_id,
+            event_name=event_name,
+            payment_id=payment_id,
+        )
+
+    # ========================================================
+    # COMPATIBILITY ALIAS
+    # ========================================================
+
+    def webhook_event_exists(
+        self,
+        event_id: str,
+    ) -> bool:
+        """
+        Compatibility alias for webhook existence checks.
+        """
+
+        return self.webhook_exists(
+            event_id
+        )
