@@ -30,7 +30,9 @@ RETRY_LATER
 REVIEW
 DO_NOTHING
 
+
 🔑 Key Features
+
 1. Payment Intelligence
 Payment performance analysis
 Failed payment identification
@@ -38,6 +40,7 @@ Success/failure rate calculation
 Revenue-at-risk calculation
 Captured payment analysis
 Razorpay payment verification
+
 
 2. Agentic AI Pipeline
 MerchantOps AI uses multiple specialized stages:
@@ -106,8 +109,8 @@ DO_NOTHING
         ↓
 BLOCKED
 
-💳 Razorpay Integration
 
+💳 Razorpay Integration
 MerchantOps AI integrates with Razorpay Test Mode.
 
 Implemented functionality includes:
@@ -121,6 +124,7 @@ Verified payment persistence
 Payment status validation
 Razorpay webhook processing
 Payment Verification Flow
+
 Razorpay Checkout
        ↓
 Create Order
@@ -155,8 +159,9 @@ Captured Status
 Refund Amount
 Email
 Contact
-🔔 Razorpay Webhooks
 
+
+🔔 Razorpay Webhooks
 Webhook endpoint:
 
 POST /webhooks/razorpay
@@ -179,6 +184,7 @@ MerchantOps AI
        ↓
 Audit Trail
 
+
 Supported payment lifecycle events include:
 
 payment.authorized
@@ -198,6 +204,7 @@ as the idempotency key.
 
 The event ID is stored in PostgreSQL with a uniqueness constraint.
 
+
 Conceptually:
 
 Webhook Event
@@ -214,8 +221,8 @@ Ignore     Process
 
 This prevents duplicate webhook events from being processed repeatedly.
 
-🗄️ PostgreSQL Persistence
 
+🗄️ PostgreSQL Persistence
 Production persistence uses PostgreSQL.
 
 Main tables:
@@ -238,7 +245,6 @@ Status
 Structured details
 
 Audit details are stored using PostgreSQL JSONB.
-
 Webhook Events
 
 The webhook_events table stores:
@@ -250,8 +256,8 @@ Creation timestamp
 
 The event ID is used to enforce webhook idempotency.
 
-📊 Production Activity Statistics
 
+📊 Production Activity Statistics
 The backend exposes aggregate activity statistics through:
 
 GET /activity/stats
@@ -268,8 +274,8 @@ Example:
 
 These values are calculated directly from PostgreSQL rather than from a limited audit-result subset.
 
-🤖 AI Decision Engine
 
+🤖 AI Decision Engine
 The final decision layer evaluates:
 
 Risk
@@ -294,8 +300,9 @@ Expected Recovery       ₹3,829
 Decision                RETRY_LATER
 Confidence              58%
 Execution Mode          SCHEDULED_TEST_ACTION
-🛡️ Action Guardrails
 
+
+🛡️ Action Guardrails
 The action policy layer controls whether a recommended action can proceed.
 
 Examples:
@@ -321,13 +328,13 @@ SCHEDULED_TEST_ACTION
 
 This provides an additional safety layer around AI-generated recommendations.
 
-🖥️ Streamlit Dashboard
 
+🖥️ Streamlit Dashboard
 MerchantOps AI includes an interactive Streamlit dashboard connected to the production FastAPI backend.
+
 
 Dashboard Sections
 📊 Merchant Operations Overview
-
 Displays:
 
 Total payments
@@ -335,55 +342,53 @@ Failed payments
 Success rate
 Failure rate
 Revenue at risk
-💳 Razorpay Live Activity
 
+💳 Razorpay Live Activity
 Displays:
 
 Verified payments
 Verification events
 Webhook events
 Webhook processing
-🔔 Razorpay Webhook Activity
 
+🔔 Razorpay Webhook Activity
 Displays stored Razorpay webhook events.
 
 🤖 AI Executive Summary
-
 Displays:
 
 Revenue at risk
 Recovery candidates
 Expected recovery
 AI decisions
-🎯 AI Action Recommendations
 
+🎯 AI Action Recommendations
 Displays:
 
 RETRY_NOW
 RETRY_LATER
 REVIEW
 DO_NOTHING
-🛡️ AI Governance & Safety
 
+🛡️ AI Governance & Safety
 Displays:
 
 Merchant approvals
 Allowed actions
 Blocked actions
 Scheduled test actions
-🔎 Decision Explorer
 
+🔎 Decision Explorer
 Allows decisions to be explored using:
 
 Action filter
 Risk filter
 Row limit
-⏳ Merchant Approval Queue
 
+⏳ Merchant Approval Queue
 Displays decisions that require merchant approval.
 
 🧠 Decision Details & Explainability
-
 Displays:
 
 Payment ID
@@ -398,8 +403,8 @@ Confidence
 Final decision
 Decision reason
 Policy mode
-🧪 Simulation Analysis
 
+🧪 Simulation Analysis
 Displays simulated recovery scenarios and expected recovery values.
 
 ✅ Verified Payment Details
@@ -409,6 +414,7 @@ Displays successfully verified Razorpay payments.
 📋 Audit Trail
 
 Displays recorded operational events from the backend.
+
 
 🏗️ System Architecture
                        ┌─────────────────────┐
@@ -476,7 +482,10 @@ Displays recorded operational events from the backend.
                        ┌─────────────────────┐
                        │ Streamlit Dashboard │
                        └─────────────────────┘
+
+
 🔄 Webhook Architecture
+
 Razorpay Webhook
        ↓
 Signature Verification
@@ -490,8 +499,9 @@ Webhook Processor
 MerchantOps AI
        ↓
 Audit Trail
-📈 Demonstration Results
 
+
+📈 Demonstration Results
 The current demonstration dataset contains:
 
 Total Payments        1,000
@@ -523,6 +533,7 @@ Scheduled Test Actions   23
 
 These values represent the current demonstration dataset and are not live financial statistics.
 
+
 🌐 REST API
 System
 GET /
@@ -542,8 +553,9 @@ GET /audit
 Webhooks
 GET /webhooks/events
 POST /webhooks/razorpay
-🧪 Testing
 
+
+🧪 Testing
 The project includes automated tests covering:
 
 Action Tools
@@ -567,6 +579,7 @@ Current test result:
 Run the complete test suite:
 
 python -m pytest
+
 ☁️ Deployment
 Backend
 
@@ -575,10 +588,9 @@ The FastAPI backend is deployed using:
 Render
 
 Production API:
-
 https://merchantops-ai-api.onrender.com
-Dashboard
 
+Dashboard
 The Streamlit dashboard communicates with the production API.
 
 Streamlit Dashboard
@@ -586,6 +598,7 @@ Streamlit Dashboard
 FastAPI API
         ↓
 PostgreSQL
+
 ⚙️ Technology Stack
 Backend
 Python
@@ -614,6 +627,8 @@ Render
 Streamlit
 Git
 GitHub
+
+
 📁 Project Structure
 MerchantOps-AI/
 │
@@ -662,16 +677,22 @@ MerchantOps-AI/
 ├── data/
 ├── requirements.txt
 └── README.md
+
+
 🚀 Local Setup
+
 1. Clone the Repository
 git clone https://github.com/AbhishekRBiradar/MerchantOps-AI.git
 cd MerchantOps-AI
+
 2. Create Virtual Environment
 python -m venv .venv
 Windows
 .venv\Scripts\activate
+
 3. Install Dependencies
 pip install -r requirements.txt
+
 4. Configure Environment Variables
 
 Create a .env file:
@@ -686,13 +707,16 @@ Never commit .env to GitHub.
 
 5. Start FastAPI
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+
 6. Start Streamlit
 set API_URL=https://merchantops-ai-api.onrender.com
 streamlit run dashboard/app.py
+
 7. Run Tests
 python -m pytest
-🔐 Security
 
+
+🔐 Security
 Sensitive credentials are provided through environment variables rather than hard-coded into application source code.
 
 Required configuration:
@@ -720,6 +744,8 @@ AI recovery decisions are intended for demonstration, research, and controlled a
 Scheduled actions are governed test actions.
 The system is not an unrestricted live-money payment execution engine.
 Production financial, fraud, risk, and compliance decisions would require additional validation, monitoring, controls, and regulatory considerations.
+
+
 📌 Project Status
 FastAPI Backend                 ✅
 Payment Intelligence            ✅
@@ -738,6 +764,8 @@ Activity Statistics             ✅
 Streamlit Dashboard             ✅
 Render Deployment               ✅
 Automated Tests                 ✅
+
+
 ⭐ Project Highlights
 Agentic AI
 Payment Intelligence
@@ -754,14 +782,15 @@ FastAPI
 Streamlit
 Production Deployment
 Automated Testing
+
+
 👨‍💻 Author
 Abhishek Rajkumar Biradar
-
 AI/ML | Python | Backend Development | Data & AI Systems
 
 GitHub:
-
 https://github.com/AbhishekRBiradar
+
 
 📄 Disclaimer
 
