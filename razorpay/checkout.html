@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
 
     <meta
@@ -8,9 +10,11 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>MerchantOps AI - Razorpay Checkout</title>
+    <title>MerchantOps AI - Customer Checkout</title>
 
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script
+        src="https://checkout.razorpay.com/v1/checkout.js"
+    ></script>
 
     <style>
 
@@ -21,45 +25,38 @@
         body {
             margin: 0;
             min-height: 100vh;
-
             display: flex;
             align-items: center;
             justify-content: center;
-
+            padding: 24px;
             font-family:
                 Inter,
                 Arial,
                 Helvetica,
                 sans-serif;
-
             background:
                 linear-gradient(
                     135deg,
                     #0f172a,
                     #1e293b
                 );
-
             color: #f8fafc;
         }
 
         .container {
             width: min(
-                92%,
-                520px
+                100%,
+                620px
             );
-
-            padding: 32px;
-
-            border-radius: 20px;
-
+            padding: 30px;
+            border-radius: 22px;
             background:
                 rgba(
                     15,
                     23,
                     42,
-                    0.92
+                    0.97
                 );
-
             border:
                 1px solid
                 rgba(
@@ -68,7 +65,6 @@
                     255,
                     0.10
                 );
-
             box-shadow:
                 0 24px 70px
                 rgba(
@@ -80,175 +76,283 @@
         }
 
         h1 {
-            margin-top: 0;
-            margin-bottom: 8px;
-
-            font-size: 32px;
+            margin:
+                0 0 8px;
+            font-size:
+                30px;
         }
 
         .subtitle {
-            margin-bottom: 28px;
-
             color:
                 #cbd5e1;
-
-            line-height: 1.5;
+            line-height:
+                1.5;
+            margin-bottom:
+                22px;
         }
 
-        label {
-            display: block;
-
-            margin-top: 16px;
-            margin-bottom: 7px;
-
-            font-weight: 600;
-        }
-
-        input {
-            width: 100%;
-
-            padding: 13px 14px;
-
-            border-radius: 10px;
-
+        .section {
+            margin-top:
+                18px;
+            padding:
+                18px;
+            border-radius:
+                14px;
+            background:
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.025
+                );
             border:
                 1px solid
-                #475569;
-
-            background:
-                #0f172a;
-
-            color:
-                #f8fafc;
-
-            outline: none;
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.08
+                );
         }
 
-        input:focus {
-            border-color:
+        .section-title {
+            margin-bottom:
+                14px;
+            font-weight:
+                700;
+            font-size:
+                16px;
+        }
+
+        .row {
+            display:
+                flex;
+            justify-content:
+                space-between;
+            gap:
+                20px;
+            padding:
+                8px 0;
+            border-bottom:
+                1px solid
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.06
+                );
+        }
+
+        .row:last-child {
+            border-bottom:
+                0;
+        }
+
+        .label {
+            color:
                 #94a3b8;
+        }
+
+        .value {
+            text-align:
+                right;
+            font-weight:
+                600;
+            word-break:
+                break-word;
+        }
+
+        .amount {
+            font-size:
+                34px;
+            font-weight:
+                800;
+            color:
+                #bfdbfe;
+        }
+
+        .breakdown {
+            margin-top:
+                10px;
+        }
+
+        .total {
+            margin-top:
+                14px;
+            padding-top:
+                14px;
+            border-top:
+                1px solid
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.12
+                );
+        }
+
+        .locked {
+            margin-top:
+                14px;
+            padding:
+                11px 13px;
+            border-radius:
+                10px;
+            background:
+                rgba(
+                    59,
+                    130,
+                    246,
+                    0.10
+                );
+            color:
+                #bfdbfe;
+            font-size:
+                13px;
+            line-height:
+                1.45;
         }
 
         button {
             width: 100%;
-
-            margin-top: 24px;
-
-            padding: 14px 18px;
-
-            border: 0;
-
-            border-radius: 10px;
-
+            margin-top:
+                20px;
+            padding:
+                15px 18px;
+            border:
+                0;
+            border-radius:
+                11px;
             background:
                 #2563eb;
-
-            color: white;
-
-            font-size: 16px;
-
-            font-weight: 700;
-
-            cursor: pointer;
+            color:
+                white;
+            font-size:
+                16px;
+            font-weight:
+                700;
+            cursor:
+                pointer;
         }
 
         button:hover {
-            opacity: 0.92;
+            opacity:
+                0.92;
         }
 
         button:disabled {
-            opacity: 0.55;
-
-            cursor: not-allowed;
+            opacity:
+                0.55;
+            cursor:
+                not-allowed;
         }
 
         .status {
-            display: none;
+            display:
+                none;
+            margin-top:
+                18px;
+            padding:
+                15px;
+            border-radius:
+                12px;
+            line-height:
+                1.6;
+            white-space:
+                pre-wrap;
+        }
 
-            margin-top: 22px;
-
-            padding: 16px;
-
-            border-radius: 12px;
-
-            line-height: 1.6;
-
-            white-space: pre-wrap;
+        .loading {
+            display:
+                block;
+            background:
+                rgba(
+                    59,
+                    130,
+                    246,
+                    0.12
+                );
+            border:
+                1px solid
+                rgba(
+                    96,
+                    165,
+                    250,
+                    0.30
+                );
         }
 
         .success {
-            display: block;
-
+            display:
+                block;
             background:
                 rgba(
-                    22,
-                    163,
-                    74,
-                    0.15
+                    34,
+                    197,
+                    94,
+                    0.12
                 );
-
             border:
                 1px solid
                 rgba(
                     74,
                     222,
                     128,
-                    0.35
+                    0.30
                 );
         }
 
         .error {
-            display: block;
-
+            display:
+                block;
             background:
                 rgba(
-                    220,
-                    38,
-                    38,
-                    0.15
+                    239,
+                    68,
+                    68,
+                    0.12
                 );
-
             border:
                 1px solid
                 rgba(
                     248,
                     113,
                     113,
-                    0.35
+                    0.30
                 );
         }
 
-        .loading {
-            display: block;
-
+        .pending {
+            display:
+                block;
             background:
                 rgba(
-                    59,
-                    130,
-                    246,
-                    0.15
+                    234,
+                    179,
+                    8,
+                    0.10
                 );
-
             border:
                 1px solid
                 rgba(
-                    147,
-                    197,
-                    253,
-                    0.35
+                    250,
+                    204,
+                    21,
+                    0.25
                 );
         }
 
         .small {
-            margin-top: 18px;
-
+            margin-top:
+                18px;
             color:
-                #94a3b8;
-
-            font-size: 13px;
+                #64748b;
+            font-size:
+                12px;
         }
 
     </style>
+
 </head>
 
 <body>
@@ -258,63 +362,290 @@
     <h1>💳 MerchantOps AI</h1>
 
     <div class="subtitle">
-        Razorpay Test Mode checkout with
-        server-side payment verification.
+        Secure customer checkout.
+        The order and amount were created by the merchant.
     </div>
 
-    <label for="amount">
-        Amount (₹)
-    </label>
 
-    <input
-        id="amount"
-        type="number"
-        value="500"
-        min="1"
-        step="1"
-    >
+    <!-- ======================================================
+         ORDER
+    ======================================================= -->
 
-    <label for="customerName">
-        Customer Name
-    </label>
+    <div class="section">
 
-    <input
-        id="customerName"
-        type="text"
-        value="Test Customer"
-    >
+        <div class="section-title">
+            🛍️ Order Details
+        </div>
 
-    <label for="customerEmail">
-        Email
-    </label>
 
-    <input
-        id="customerEmail"
-        type="email"
-        value="test@example.com"
-    >
+        <div class="row">
 
-    <label for="customerContact">
-        Contact Number
-    </label>
+            <div class="label">
+                Order ID
+            </div>
 
-    <input
-        id="customerContact"
-        type="tel"
-        value="8618293429"
-    >
+            <div
+                id="orderId"
+                class="value"
+            >
+                Loading...
+            </div>
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="label">
+                Product
+            </div>
+
+            <div
+                id="product"
+                class="value"
+            >
+                Loading...
+            </div>
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="label">
+                Description
+            </div>
+
+            <div
+                id="description"
+                class="value"
+            >
+                Loading...
+            </div>
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="label">
+                Quantity
+            </div>
+
+            <div
+                id="quantity"
+                class="value"
+            >
+                Loading...
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ======================================================
+         CUSTOMER
+    ======================================================= -->
+
+    <div class="section">
+
+        <div class="section-title">
+            👤 Customer
+        </div>
+
+
+        <div class="row">
+
+            <div class="label">
+                Name
+            </div>
+
+            <div
+                id="customerName"
+                class="value"
+            >
+                Loading...
+            </div>
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="label">
+                Email
+            </div>
+
+            <div
+                id="customerEmail"
+                class="value"
+            >
+                Loading...
+            </div>
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="label">
+                Phone
+            </div>
+
+            <div
+                id="customerPhone"
+                class="value"
+            >
+                Loading...
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ======================================================
+         PRICE BREAKDOWN
+    ======================================================= -->
+
+    <div class="section">
+
+        <div class="section-title">
+            💰 Price Breakdown
+        </div>
+
+
+        <div class="breakdown">
+
+            <div class="row">
+
+                <div class="label">
+                    Unit Price
+                </div>
+
+                <div
+                    id="unitPrice"
+                    class="value"
+                >
+                    ₹0.00
+                </div>
+
+            </div>
+
+
+            <div class="row">
+
+                <div class="label">
+                    Quantity
+                </div>
+
+                <div
+                    id="breakdownQuantity"
+                    class="value"
+                >
+                    1
+                </div>
+
+            </div>
+
+
+            <div class="row">
+
+                <div class="label">
+                    Subtotal
+                </div>
+
+                <div
+                    id="subtotal"
+                    class="value"
+                >
+                    ₹0.00
+                </div>
+
+            </div>
+
+
+            <div class="row">
+
+                <div class="label">
+                    Discount
+                </div>
+
+                <div
+                    id="discount"
+                    class="value"
+                >
+                    ₹0.00
+                </div>
+
+            </div>
+
+
+            <div class="row">
+
+                <div class="label">
+                    Tax
+                </div>
+
+                <div
+                    id="tax"
+                    class="value"
+                >
+                    ₹0.00
+                </div>
+
+            </div>
+
+
+            <div class="row total">
+
+                <div class="label">
+                    Final Amount
+                </div>
+
+                <div
+                    id="amount"
+                    class="amount"
+                >
+                    ₹0.00
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="locked">
+            🔒 This amount is controlled by the merchant-created
+            server order. Customers cannot edit the price from
+            this checkout page.
+        </div>
+
+    </div>
+
+
+    <!-- ======================================================
+         PAYMENT
+    ======================================================= -->
 
     <button
         id="payButton"
-        onclick="startPayment()"
+        disabled
     >
-        Pay ₹500
+        Loading Order...
     </button>
+
+
+    <!-- ======================================================
+         STATUS
+    ======================================================= -->
 
     <div
         id="status"
         class="status"
     ></div>
+
 
     <div class="small">
         Razorpay Test Mode • MerchantOps AI
@@ -326,15 +657,34 @@
 <script>
 
     // ========================================================
-    // API CONFIGURATION
+    // CONFIG
     // ========================================================
 
+    const RAZORPAY_KEY_ID =
+        "rzp_test_TV7feaaiM2EsjP";
+
+
     const API_URL =
+        (
+            window.location.hostname === "127.0.0.1"
+            ||
+            window.location.hostname === "localhost"
+        )
+        ?
+        "http://127.0.0.1:8000"
+        :
         "https://merchantops-ai-api.onrender.com";
 
 
     // ========================================================
-    // DOM HELPERS
+    // STATE
+    // ========================================================
+
+    let merchantOrder = null;
+
+
+    // ========================================================
+    // DOM
     // ========================================================
 
     const payButton =
@@ -347,6 +697,10 @@
             "status"
         );
 
+
+    // ========================================================
+    // STATUS
+    // ========================================================
 
     function setStatus(
         message,
@@ -363,34 +717,328 @@
 
 
     // ========================================================
-    // CREATE ORDER
+    // URL ORDER ID
     // ========================================================
 
-    async function createOrder(
-        amountPaise
-    ) {
+    function getOrderId() {
 
-        const response =
-            await fetch(
-                `${API_URL}/razorpay/create-order?amount=${amountPaise}`,
-                {
-                    method: "POST"
-                }
+        const params =
+            new URLSearchParams(
+                window.location.search
             );
 
-        const data =
-            await response.json();
+        return (
+            params.get(
+                "order_id"
+            )
+            ||
+            ""
+        ).trim();
 
-        if (!response.ok) {
+    }
+
+
+    // ========================================================
+    // FORMAT CURRENCY
+    // ========================================================
+
+    function formatINR(
+        value
+    ) {
+
+        const amount =
+            Number(
+                value || 0
+            );
+
+        return (
+            "₹"
+            +
+            amount.toLocaleString(
+                "en-IN",
+                {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }
+            )
+        );
+
+    }
+
+
+    // ========================================================
+    // LOAD ORDER
+    // ========================================================
+
+    async function loadOrder() {
+
+        const orderId =
+            getOrderId();
+
+
+        if (!orderId) {
 
             throw new Error(
-                data.detail ||
-                "Unable to create Razorpay order."
+                "No merchant order ID was supplied."
             );
 
         }
 
-        return data;
+
+        setStatus(
+            "Loading merchant order...",
+            "loading"
+        );
+
+
+        const response =
+            await fetch(
+                `${API_URL}/merchant/orders/${encodeURIComponent(orderId)}`,
+                {
+                    method:
+                        "GET",
+
+                    headers: {
+                        "Accept":
+                            "application/json"
+                    }
+                }
+            );
+
+
+        let data = null;
+
+
+        try {
+
+            data =
+                await response.json();
+
+        }
+        catch (
+            error
+        ) {
+
+            throw new Error(
+                "The merchant order service returned an invalid response."
+            );
+
+        }
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.detail
+                ||
+                "Unable to load the merchant order."
+            );
+
+        }
+
+
+        if (!data.order) {
+
+            throw new Error(
+                "Merchant order not found."
+            );
+
+        }
+
+
+        merchantOrder =
+            data.order;
+
+
+        renderOrder(
+            merchantOrder
+        );
+
+
+        const status =
+            String(
+                merchantOrder.status
+                ||
+                "CREATED"
+            ).toUpperCase();
+
+
+        if (
+            status === "VERIFIED"
+            ||
+            status === "CAPTURED"
+        ) {
+
+            setStatus(
+                "✅ This order has already been paid.",
+                "success"
+            );
+
+            payButton.disabled =
+                true;
+
+            payButton.textContent =
+                "Payment Already Completed";
+
+            return;
+
+        }
+
+
+        if (
+            status === "FAILED"
+        ) {
+
+            setStatus(
+                "❌ This order is marked as failed.",
+                "error"
+            );
+
+            payButton.disabled =
+                true;
+
+            payButton.textContent =
+                "Payment Unavailable";
+
+            return;
+
+        }
+
+
+        setStatus(
+            "✅ Order loaded. Amount is locked by the merchant.",
+            "loading"
+        );
+
+
+        payButton.disabled =
+            false;
+
+
+        payButton.textContent =
+            `💳 Pay ${formatINR(
+                merchantOrder.amount
+            )}`;
+
+    }
+
+
+    // ========================================================
+    // RENDER ORDER
+    // ========================================================
+
+    function renderOrder(
+        order
+    ) {
+
+        document.getElementById(
+            "orderId"
+        ).textContent =
+            order.order_id
+            ||
+            "-";
+
+
+        document.getElementById(
+            "product"
+        ).textContent =
+            order.product_name
+            ||
+            order.description
+            ||
+            "-";
+
+
+        document.getElementById(
+            "description"
+        ).textContent =
+            order.description
+            ||
+            "-";
+
+
+        const quantity =
+            Number(
+                order.quantity
+                ||
+                1
+            );
+
+
+        document.getElementById(
+            "quantity"
+        ).textContent =
+            quantity;
+
+
+        document.getElementById(
+            "breakdownQuantity"
+        ).textContent =
+            quantity;
+
+
+        document.getElementById(
+            "customerName"
+        ).textContent =
+            order.customer_name
+            ||
+            "-";
+
+
+        document.getElementById(
+            "customerEmail"
+        ).textContent =
+            order.customer_email
+            ||
+            "-";
+
+
+        document.getElementById(
+            "customerPhone"
+        ).textContent =
+            order.customer_phone
+            ||
+            "-";
+
+
+        document.getElementById(
+            "unitPrice"
+        ).textContent =
+            formatINR(
+                order.unit_price
+            );
+
+
+        document.getElementById(
+            "subtotal"
+        ).textContent =
+            formatINR(
+                order.subtotal
+            );
+
+
+        document.getElementById(
+            "discount"
+        ).textContent =
+            formatINR(
+                order.discount
+            );
+
+
+        document.getElementById(
+            "tax"
+        ).textContent =
+            formatINR(
+                order.tax
+            );
+
+
+        document.getElementById(
+            "amount"
+        ).textContent =
+            formatINR(
+                order.amount
+            );
 
     }
 
@@ -407,11 +1055,15 @@
             await fetch(
                 `${API_URL}/razorpay/verify-payment`,
                 {
-                    method: "POST",
+
+                    method:
+                        "POST",
 
                     headers: {
+
                         "Content-Type":
                             "application/json"
+
                     },
 
                     body:
@@ -427,20 +1079,41 @@
                                 paymentResponse.razorpay_signature
 
                         })
+
                 }
             );
 
-        const data =
-            await response.json();
+
+        let data = null;
+
+
+        try {
+
+            data =
+                await response.json();
+
+        }
+        catch (
+            error
+        ) {
+
+            throw new Error(
+                "Payment verification returned an invalid response."
+            );
+
+        }
+
 
         if (!response.ok) {
 
             throw new Error(
-                data.detail ||
-                "Payment verification request failed."
+                data.detail
+                ||
+                "Payment verification failed."
             );
 
         }
+
 
         return data;
 
@@ -448,410 +1121,496 @@
 
 
     // ========================================================
-    // START PAYMENT
+    // PAYMENT FAILURE MESSAGE
     // ========================================================
 
-    async function startPayment() {
+    function failureMessage(
+        response
+    ) {
 
-        try {
+        const error =
+            response
+            &&
+            response.error
+            ?
+            response.error
+            :
+            {};
 
-            payButton.disabled =
-                true;
+
+        return (
+
+            error.description
+            ||
+            error.reason
+            ||
+            error.code
+            ||
+            "Payment failed."
+
+        );
+
+    }
+
+
+    // ========================================================
+    // START RAZORPAY PAYMENT
+    // ========================================================
+
+    function startPayment() {
+
+        if (!merchantOrder) {
 
             setStatus(
-                "Creating Razorpay order...",
-                "loading"
+                "❌ Merchant order is not loaded.",
+                "error"
             );
 
+            return;
 
-            // ------------------------------------------------
-            // Get customer values
-            // ------------------------------------------------
-
-            const amountRupees =
-                Number(
-                    document.getElementById(
-                        "amount"
-                    ).value
-                );
-
-            const customerName =
-                document.getElementById(
-                    "customerName"
-                ).value
-                || "Test Customer";
-
-            const customerEmail =
-                document.getElementById(
-                    "customerEmail"
-                ).value
-                || "test@example.com";
-
-            const customerContact =
-                document.getElementById(
-                    "customerContact"
-                ).value
-                || "8618293429";
+        }
 
 
-            // ------------------------------------------------
-            // Validate amount
-            // ------------------------------------------------
+        const orderId =
+            merchantOrder.order_id;
 
-            if (
-                !Number.isFinite(
-                    amountRupees
-                )
+
+        const amount =
+            Number(
+                merchantOrder.amount
                 ||
-                amountRupees <= 0
-            ) {
-
-                throw new Error(
-                    "Please enter a valid amount."
-                );
-
-            }
-
-
-            const amountPaise =
-                Math.round(
-                    amountRupees * 100
-                );
-
-
-            // ------------------------------------------------
-            // Create backend Razorpay order
-            // ------------------------------------------------
-
-            const order =
-                await createOrder(
-                    amountPaise
-                );
-
-
-            setStatus(
-                "Opening Razorpay Checkout...",
-                "loading"
+                0
             );
 
 
-            // ------------------------------------------------
-            // Razorpay options
-            // ------------------------------------------------
+        if (
+            !orderId
+            ||
+            amount <= 0
+        ) {
 
-            const options = {
+            setStatus(
+                "❌ Invalid merchant order.",
+                "error"
+            );
 
-                key:
-                    "rzp_test_TV7feaaiM2EsjP",
+            return;
 
-                amount:
-                    order.amount,
+        }
 
-                currency:
-                    order.currency,
+
+        payButton.disabled =
+            true;
+
+
+        setStatus(
+            "Opening Razorpay Checkout...",
+            "loading"
+        );
+
+
+        /*
+         * CRITICAL:
+         *
+         * This page does not create a new order.
+         *
+         * It uses the exact order created by the merchant.
+         */
+
+        const options = {
+
+            key:
+                RAZORPAY_KEY_ID,
+
+            amount:
+                Math.round(
+                    amount * 100
+                ),
+
+            currency:
+                merchantOrder.currency
+                ||
+                "INR",
+
+            name:
+                "MerchantOps AI",
+
+            description:
+                merchantOrder.description
+                ||
+                merchantOrder.product_name
+                ||
+                "Merchant Payment",
+
+            order_id:
+                orderId,
+
+
+            prefill: {
 
                 name:
-                    "MerchantOps AI",
+                    merchantOrder.customer_name
+                    ||
+                    "",
 
-                description:
-                    "MerchantOps AI Test Payment",
+                email:
+                    merchantOrder.customer_email
+                    ||
+                    "",
 
-                order_id:
-                    order.order_id,
+                contact:
+                    merchantOrder.customer_phone
+                    ||
+                    ""
 
-                prefill: {
+            },
 
-                    name:
-                        customerName,
 
-                    email:
-                        customerEmail,
+            notes: {
 
-                    contact:
-                        customerContact
+                merchant_order_id:
+                    orderId,
 
-                },
+                product_name:
+                    merchantOrder.product_name
+                    ||
+                    "",
 
-                notes: {
+                quantity:
+                    String(
+                        merchantOrder.quantity
+                        ||
+                        1
+                    )
 
-                    source:
-                        "merchantops_ai_test"
+            },
 
-                },
 
-
-                // --------------------------------------------
-                // SUCCESS HANDLER
-                // --------------------------------------------
-
-                handler:
-                    async function (
-                        razorpayResponse
-                    ) {
-
-                        console.log(
-                            "Razorpay success response:",
-                            razorpayResponse
-                        );
-
-
-                        setStatus(
-                            "Payment received.\n" +
-                            "Verifying payment with MerchantOps AI...",
-                            "loading"
-                        );
-
-
-                        try {
-
-                            // --------------------------------
-                            // IMPORTANT:
-                            // Send Razorpay response to
-                            // production FastAPI.
-                            // --------------------------------
-
-                            const verification =
-                                await verifyPayment(
-                                    razorpayResponse
-                                );
-
-
-                            console.log(
-                                "MerchantOps verification response:",
-                                verification
-                            );
-
-
-                            if (
-                                verification.verified
-                                !== true
-                            ) {
-
-                                throw new Error(
-                                    verification.reason ||
-                                    "Payment verification failed."
-                                );
-
-                            }
-
-
-                            // --------------------------------
-                            // Display successful result
-                            // --------------------------------
-
-                            const payment =
-                                verification.payment
-                                || {};
-
-
-                            setStatus(
-
-                                "✅ Payment verified successfully!\n\n"
-                                +
-
-                                "Payment ID: "
-                                +
-                                (
-                                    payment.payment_id
-                                    || "-"
-                                )
-                                +
-
-                                "\nOrder ID: "
-                                +
-                                (
-                                    payment.order_id
-                                    || "-"
-                                )
-                                +
-
-                                "\nAmount: ₹"
-                                +
-                                (
-                                    payment.amount
-                                    ?? "-"
-                                )
-                                +
-
-                                "\nPayment Status: "
-                                +
-                                (
-                                    payment.payment_status
-                                    || "-"
-                                )
-                                +
-
-                                "\nCaptured: "
-                                +
-                                (
-                                    payment.captured
-                                    ? "Yes"
-                                    : "No"
-                                )
-                                +
-
-                                "\n\nBackend Status: "
-                                +
-                                verification.status
-                                +
-
-                                "\nAudit Recorded: "
-                                +
-                                (
-                                    verification.audit_recorded
-                                    ? "Yes"
-                                    : "No"
-                                )
-                                +
-
-                                "\nAudit Storage: "
-                                +
-                                (
-                                    verification.audit_storage
-                                    || "-"
-                                ),
-
-                                "success"
-                            );
-
-
-                        }
-                        catch (
-                            verificationError
-                        ) {
-
-                            console.error(
-                                "Verification error:",
-                                verificationError
-                            );
-
-
-                            setStatus(
-
-                                "❌ Payment succeeded, "
-                                + 
-                                "but backend verification failed.\n\n"
-                                +
-                                verificationError.message,
-
-                                "error"
-                            );
-
-                        }
-                        finally {
-
-                            payButton.disabled =
-                                false;
-
-                        }
-
-                    },
-
-
-                // --------------------------------------------
-                // MODAL CLOSE
-                // --------------------------------------------
-
-                modal:
-                    {
-                        ondismiss:
-                            function () {
-
-                                payButton.disabled =
-                                    false;
-
-                                setStatus(
-                                    "Checkout closed.",
-                                    "loading"
-                                );
-
-                            }
-                    }
-
-            };
-
-
-            // ------------------------------------------------
-            // Open Razorpay
-            // ------------------------------------------------
-
-            const razorpay =
-                new Razorpay(
-                    options
-                );
-
-
-            razorpay.on(
-                "payment.failed",
-                function (
-                    response
+            handler:
+                async function (
+                    razorpayResponse
                 ) {
 
-                    console.error(
-                        "Razorpay payment failed:",
-                        response.error
+                    console.log(
+                        "Razorpay response:",
+                        razorpayResponse
                     );
 
 
                     setStatus(
 
-                        "❌ Payment failed.\n\n"
+                        "🟡 Payment received.\n\n"
                         +
-                        "Reason: "
+                        "Payment ID: "
                         +
-                        (
-                            response.error
-                            ?.description
-                            ||
-                            "Payment failed."
-                        )
+                        razorpayResponse.razorpay_payment_id
                         +
-                        "\nCode: "
+                        "\n\n"
                         +
-                        (
-                            response.error
-                            ?.code
-                            ||
-                            "-"
-                        ),
+                        "Verifying payment with MerchantOps AI...",
 
-                        "error"
+                        "loading"
                     );
 
 
-                    payButton.disabled =
-                        false;
+                    try {
 
-                }
+                        const verification =
+                            await verifyPayment(
+                                razorpayResponse
+                            );
+
+
+                        if (
+                            verification.verified
+                            !==
+                            true
+                        ) {
+
+                            throw new Error(
+                                verification.reason
+                                ||
+                                "Payment verification failed."
+                            );
+
+                        }
+
+
+                        const payment =
+                            verification.payment
+                            ||
+                            {};
+
+
+                        setStatus(
+
+                            "🟢 PAYMENT SUCCESSFUL\n\n"
+
+                            +
+                            "Customer: "
+                            +
+                            (
+                                merchantOrder.customer_name
+                                ||
+                                "-"
+                            )
+
+                            +
+                            "\nProduct: "
+                            +
+                            (
+                                merchantOrder.product_name
+                                ||
+                                merchantOrder.description
+                                ||
+                                "-"
+                            )
+
+                            +
+                            "\nAmount: "
+                            +
+                            formatINR(
+                                payment.amount
+                                ||
+                                amount
+                            )
+
+                            +
+                            "\nPayment ID: "
+                            +
+                            (
+                                payment.payment_id
+                                ||
+                                razorpayResponse.razorpay_payment_id
+                            )
+
+                            +
+                            "\nOrder ID: "
+                            +
+                            (
+                                payment.order_id
+                                ||
+                                orderId
+                            )
+
+                            +
+                            "\nPayment Status: "
+                            +
+                            (
+                                payment.payment_status
+                                ||
+                                "-"
+                            )
+
+                            +
+                            "\nCaptured: "
+                            +
+                            (
+                                payment.captured
+                                ?
+                                "Yes"
+                                :
+                                "No"
+                            )
+
+                            +
+                            "\nVerification: VERIFIED"
+
+                            +
+                            "\nAudit Recorded: "
+                            +
+                            (
+                                verification.audit_recorded
+                                ?
+                                "Yes"
+                                :
+                                "No"
+                            ),
+
+                            "success"
+                        );
+
+
+                        payButton.textContent =
+                            "✅ Payment Completed";
+
+
+                    }
+                    catch (
+                        verificationError
+                    ) {
+
+                        console.error(
+                            "Verification error:",
+                            verificationError
+                        );
+
+
+                        setStatus(
+
+                            "🟡 PAYMENT RECEIVED\n\n"
+                            +
+                            "Razorpay reported a payment, "
+                            +
+                            "but MerchantOps verification "
+                            +
+                            "could not be completed.\n\n"
+                            +
+                            "Payment ID: "
+                            +
+                            razorpayResponse.razorpay_payment_id
+                            +
+                            "\n\n"
+                            +
+                            verificationError.message,
+
+                            "pending"
+                        );
+
+
+                        payButton.disabled =
+                            false;
+
+                    }
+
+                },
+
+
+            modal: {
+
+                ondismiss:
+                    function () {
+
+                        payButton.disabled =
+                            false;
+
+
+                        setStatus(
+                            "Checkout closed. No final payment confirmation was received.",
+                            "pending"
+                        );
+
+                    }
+
+            }
+
+        };
+
+
+        const razorpay =
+            new Razorpay(
+                options
             );
 
 
-            razorpay.open();
+        razorpay.on(
+            "payment.failed",
+            function (
+                response
+            ) {
 
-        }
-        catch (
-            error
-        ) {
-
-            console.error(
-                "Payment initialization error:",
-                error
-            );
-
-
-            setStatus(
-                "❌ " +
-                error.message,
-                "error"
-            );
+                console.error(
+                    "Razorpay payment failed:",
+                    response.error
+                );
 
 
-            payButton.disabled =
-                false;
+                setStatus(
 
-        }
+                    "🔴 PAYMENT FAILED\n\n"
+
+                    +
+                    "Customer: "
+                    +
+                    (
+                        merchantOrder.customer_name
+                        ||
+                        "-"
+                    )
+
+                    +
+                    "\nAmount: "
+                    +
+                    formatINR(
+                        amount
+                    )
+
+                    +
+                    "\nOrder ID: "
+                    +
+                    orderId
+
+                    +
+                    "\n\nFailure Reason: "
+                    +
+                    failureMessage(
+                        response
+                    ),
+
+                    "error"
+                );
+
+
+                payButton.disabled =
+                    false;
+
+            }
+        );
+
+
+        razorpay.open();
 
     }
+
+
+    // ========================================================
+    // INITIALIZE
+    // ========================================================
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        async function () {
+
+            try {
+
+                await loadOrder();
+
+            }
+            catch (
+                error
+            ) {
+
+                console.error(
+                    "Order loading error:",
+                    error
+                );
+
+
+                setStatus(
+                    "❌ "
+                    +
+                    error.message,
+                    "error"
+                );
+
+
+                payButton.disabled =
+                    true;
+
+            }
+
+        }
+    );
+
+
+    // ========================================================
+    // BUTTON
+    // ========================================================
+
+    payButton.addEventListener(
+        "click",
+        startPayment
+    );
 
 </script>
 

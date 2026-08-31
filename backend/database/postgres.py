@@ -25,6 +25,17 @@ class PostgresDatabase:
     Stores:
         - audit_logs
         - webhook_events
+        - merchant_orders
+
+    Merchant orders store the complete commercial breakdown:
+
+        product
+        quantity
+        unit price
+        subtotal
+        discount
+        tax
+        final amount
     """
 
     def __init__(
@@ -40,6 +51,7 @@ class PostgresDatabase:
         )
 
         if not self.database_url:
+
             raise ValueError(
                 "DATABASE_URL is missing."
             )
@@ -49,12 +61,6 @@ class PostgresDatabase:
     # ========================================================
 
     def connect(self):
-        """
-        Create a PostgreSQL connection.
-
-        dict_row is intentional so database rows are returned
-        as dictionaries and can be accessed by column name.
-        """
 
         return psycopg.connect(
             self.database_url,
@@ -67,16 +73,17 @@ class PostgresDatabase:
 
     def initialize(self) -> None:
         """
-        Create required tables and indexes if necessary.
+        Create all MerchantOps tables and migrate the
+        merchant_orders table when older installations are used.
         """
 
         with self.connect() as connection:
 
             with connection.cursor() as cursor:
 
-                # ------------------------------------------------
+                # ====================================================
                 # AUDIT LOGS
-                # ------------------------------------------------
+                # ====================================================
 
                 cursor.execute(
                     """
@@ -107,10 +114,6 @@ class PostgresDatabase:
                     """
                 )
 
-                # ------------------------------------------------
-                # AUDIT INDEXES
-                # ------------------------------------------------
-
                 cursor.execute(
                     """
                     CREATE INDEX IF NOT EXISTS
@@ -135,9 +138,9 @@ class PostgresDatabase:
                     """
                 )
 
-                # ------------------------------------------------
+                # ====================================================
                 # WEBHOOK EVENTS
-                # ------------------------------------------------
+                # ====================================================
 
                 cursor.execute(
                     """
@@ -153,10 +156,6 @@ class PostgresDatabase:
                     );
                     """
                 )
-
-                # ------------------------------------------------
-                # WEBHOOK INDEXES
-                # ------------------------------------------------
 
                 cursor.execute(
                     """
@@ -174,6 +173,171 @@ class PostgresDatabase:
                     """
                 )
 
+                # ====================================================
+                # MERCHANT ORDERS
+                # ====================================================
+
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS merchant_orders (
+                        id BIGSERIAL PRIMARY KEY,
+
+                        order_id TEXT UNIQUE NOT NULL,
+
+                        customer_name TEXT,
+
+                        customer_email TEXT,
+
+                        customer_phone TEXT,
+
+                        product_name TEXT,
+
+                        quantity INTEGER
+                            NOT NULL
+                            DEFAULT 1,
+
+                        unit_price NUMERIC(12, 2)
+                            NOT NULL
+                            DEFAULT 0,
+
+                        subtotal NUMERIC(12, 2)
+                            NOT NULL
+                            DEFAULT 0,
+
+                        discount NUMERIC(12, 2)
+                            NOT NULL
+                            DEFAULT 0,
+
+                        tax NUMERIC(12, 2)
+                            NOT NULL
+                            DEFAULT 0,
+
+                        amount NUMERIC(12, 2)
+                            NOT NULL,
+
+                        currency TEXT NOT NULL
+                            DEFAULT 'INR',
+
+                        description TEXT,
+
+                        status TEXT NOT NULL
+                            DEFAULT 'CREATED',
+
+                        payment_id TEXT,
+
+                        created_at TIMESTAMPTZ NOT NULL
+                            DEFAULT NOW(),
+
+                        updated_at TIMESTAMPTZ NOT NULL
+                            DEFAULT NOW()
+                    );
+                    """
+                )
+
+                # ====================================================
+                # MIGRATION FOR EXISTING DATABASES
+                # ====================================================
+                #
+                # If merchant_orders already existed before the
+                # commercial breakdown fields were introduced,
+                # add the missing columns without deleting data.
+                #
+                # ====================================================
+
+                cursor.execute(
+                    """
+                    ALTER TABLE merchant_orders
+                    ADD COLUMN IF NOT EXISTS
+                    product_name TEXT;
+                    """
+                )
+
+                cursor.execute(
+                    """
+                    ALTER TABLE merchant_orders
+                    ADD COLUMN IF NOT EXISTS
+                    quantity INTEGER
+                    NOT NULL
+                    DEFAULT 1;
+                    """
+                )
+
+                cursor.execute(
+                    """
+                    ALTER TABLE merchant_orders
+                    ADD COLUMN IF NOT EXISTS
+                    unit_price NUMERIC(12, 2)
+                    NOT NULL
+                    DEFAULT 0;
+                    """
+                )
+
+                cursor.execute(
+                    """
+                    ALTER TABLE merchant_orders
+                    ADD COLUMN IF NOT EXISTS
+                    subtotal NUMERIC(12, 2)
+                    NOT NULL
+                    DEFAULT 0;
+                    """
+                )
+
+                cursor.execute(
+                    """
+                    ALTER TABLE merchant_orders
+                    ADD COLUMN IF NOT EXISTS
+                    discount NUMERIC(12, 2)
+                    NOT NULL
+                    DEFAULT 0;
+                    """
+                )
+
+                cursor.execute(
+                    """
+                    ALTER TABLE merchant_orders
+                    ADD COLUMN IF NOT EXISTS
+                    tax NUMERIC(12, 2)
+                    NOT NULL
+                    DEFAULT 0;
+                    """
+                )
+
+                # ====================================================
+                # MERCHANT ORDER INDEXES
+                # ====================================================
+
+                cursor.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS
+                    idx_merchant_orders_payment_id
+                    ON merchant_orders(payment_id);
+                    """
+                )
+
+                cursor.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS
+                    idx_merchant_orders_status
+                    ON merchant_orders(status);
+                    """
+                )
+
+                cursor.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS
+                    idx_merchant_orders_created_at
+                    ON merchant_orders(created_at DESC);
+                    """
+                )
+
+                cursor.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS
+                    idx_merchant_orders_customer_email
+                    ON merchant_orders(customer_email);
+                    """
+                )
+
             connection.commit()
 
     # ========================================================
@@ -184,13 +348,6 @@ class PostgresDatabase:
         self,
         event: Dict[str, Any],
     ) -> None:
-        """
-        Insert one audit event.
-
-        details is explicitly wrapped with Jsonb so nested
-        Python dictionaries/lists are correctly stored in
-        PostgreSQL JSONB.
-        """
 
         details = event.get(
             "details",
@@ -292,9 +449,6 @@ class PostgresDatabase:
     def read_audit_events(
         self,
     ) -> List[Dict[str, Any]]:
-        """
-        Return all audit events, oldest first by ID.
-        """
 
         with self.connect() as connection:
 
@@ -353,9 +507,6 @@ class PostgresDatabase:
         self,
         limit: int = 100,
     ) -> List[Dict[str, Any]]:
-        """
-        Return recent audit events, newest first.
-        """
 
         limit = max(
             1,
@@ -428,9 +579,6 @@ class PostgresDatabase:
         self,
         event_id: str,
     ) -> bool:
-        """
-        Return True if the webhook event already exists.
-        """
 
         with self.connect() as connection:
 
@@ -465,12 +613,6 @@ class PostgresDatabase:
         event_name: str,
         payment_id: Optional[str] = None,
     ) -> None:
-        """
-        Record a webhook event.
-
-        Duplicate event IDs are ignored through the
-        PostgreSQL primary-key constraint.
-        """
 
         with self.connect() as connection:
 
@@ -509,9 +651,6 @@ class PostgresDatabase:
     def read_webhook_events(
         self,
     ) -> List[Dict[str, Any]]:
-        """
-        Return all webhook events, newest first.
-        """
 
         with self.connect() as connection:
 
@@ -563,12 +702,6 @@ class PostgresDatabase:
     def get_stats(
         self,
     ) -> Dict[str, int]:
-        """
-        Return total record counts.
-
-        This implementation uses dictionary column names
-        because the connection uses dict_row.
-        """
 
         with self.connect() as connection:
 
@@ -620,20 +753,10 @@ class PostgresDatabase:
     def get_activity_stats(
         self,
     ) -> Dict[str, int]:
-        """
-        Return authoritative aggregate activity counts.
-
-        These values are calculated by PostgreSQL and are not
-        limited to the latest 1000 audit records.
-        """
 
         with self.connect() as connection:
 
             with connection.cursor() as cursor:
-
-                # ------------------------------------------------
-                # AUDIT-BASED COUNTS
-                # ------------------------------------------------
 
                 cursor.execute(
                     """
@@ -663,10 +786,6 @@ class PostgresDatabase:
                 row = (
                     cursor.fetchone()
                 )
-
-                # ------------------------------------------------
-                # WEBHOOK TABLE COUNT
-                # ------------------------------------------------
 
                 cursor.execute(
                     """
@@ -716,6 +835,641 @@ class PostgresDatabase:
         }
 
     # ========================================================
+    # NORMALIZE MERCHANT ORDER
+    # ========================================================
+
+    @staticmethod
+    def _normalize_merchant_order(
+        row: Optional[Dict[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
+
+        if row is None:
+
+            return None
+
+        result = dict(
+            row
+        )
+
+        # ----------------------------------------------------
+        # Numeric fields
+        # ----------------------------------------------------
+
+        numeric_fields = [
+
+            "quantity",
+            "unit_price",
+            "subtotal",
+            "discount",
+            "tax",
+            "amount",
+
+        ]
+
+        for field in numeric_fields:
+
+            value = result.get(
+                field
+            )
+
+            if value is None:
+
+                continue
+
+            if field == "quantity":
+
+                result[
+                    field
+                ] = int(
+                    value
+                )
+
+            else:
+
+                result[
+                    field
+                ] = float(
+                    value
+                )
+
+        # ----------------------------------------------------
+        # Datetimes
+        # ----------------------------------------------------
+
+        for field in [
+            "created_at",
+            "updated_at",
+        ]:
+
+            timestamp = result.get(
+                field
+            )
+
+            if timestamp is not None:
+
+                result[
+                    field
+                ] = timestamp.isoformat()
+
+        return result
+
+    # ========================================================
+    # CREATE MERCHANT ORDER
+    # ========================================================
+
+    def create_merchant_order(
+        self,
+        order_id: str,
+        amount: float,
+        currency: str = "INR",
+        customer_name: Optional[str] = None,
+        customer_email: Optional[str] = None,
+        customer_phone: Optional[str] = None,
+        product_name: Optional[str] = None,
+        quantity: int = 1,
+        unit_price: float = 0.0,
+        subtotal: Optional[float] = None,
+        discount: float = 0.0,
+        tax: float = 0.0,
+        description: Optional[str] = None,
+        status: str = "CREATED",
+    ) -> Dict[str, Any]:
+        """
+        Create or update a merchant order.
+
+        Financial structure:
+
+            subtotal = quantity × unit_price
+
+            final amount =
+                subtotal - discount + tax
+
+        The caller should pass the same final amount used
+        to create the Razorpay order.
+        """
+
+        quantity = int(
+            quantity
+        )
+
+        if quantity <= 0:
+
+            raise ValueError(
+                "quantity must be greater than zero."
+            )
+
+        unit_price = float(
+            unit_price
+        )
+
+        discount = float(
+            discount
+        )
+
+        tax = float(
+            tax
+        )
+
+        amount = float(
+            amount
+        )
+
+        if subtotal is None:
+
+            subtotal = (
+                quantity
+                *
+                unit_price
+            )
+
+        subtotal = float(
+            subtotal
+        )
+
+        calculated_amount = (
+            subtotal
+            -
+            discount
+            +
+            tax
+        )
+
+        # ----------------------------------------------------
+        # Financial consistency
+        # ----------------------------------------------------
+
+        if abs(
+            calculated_amount
+            -
+            amount
+        ) > 0.01:
+
+            raise ValueError(
+                (
+                    "Merchant order amount mismatch. "
+                    f"Expected ₹{calculated_amount:.2f}, "
+                    f"received ₹{amount:.2f}."
+                )
+            )
+
+        with self.connect() as connection:
+
+            with connection.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    INSERT INTO merchant_orders (
+
+                        order_id,
+
+                        customer_name,
+
+                        customer_email,
+
+                        customer_phone,
+
+                        product_name,
+
+                        quantity,
+
+                        unit_price,
+
+                        subtotal,
+
+                        discount,
+
+                        tax,
+
+                        amount,
+
+                        currency,
+
+                        description,
+
+                        status
+
+                    )
+                    VALUES (
+
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s
+
+                    )
+
+                    ON CONFLICT (
+                        order_id
+                    )
+                    DO UPDATE SET
+
+                        customer_name =
+                            EXCLUDED.customer_name,
+
+                        customer_email =
+                            EXCLUDED.customer_email,
+
+                        customer_phone =
+                            EXCLUDED.customer_phone,
+
+                        product_name =
+                            EXCLUDED.product_name,
+
+                        quantity =
+                            EXCLUDED.quantity,
+
+                        unit_price =
+                            EXCLUDED.unit_price,
+
+                        subtotal =
+                            EXCLUDED.subtotal,
+
+                        discount =
+                            EXCLUDED.discount,
+
+                        tax =
+                            EXCLUDED.tax,
+
+                        amount =
+                            EXCLUDED.amount,
+
+                        currency =
+                            EXCLUDED.currency,
+
+                        description =
+                            EXCLUDED.description,
+
+                        status =
+                            EXCLUDED.status,
+
+                        updated_at =
+                            NOW()
+
+                    RETURNING
+
+                        id,
+
+                        order_id,
+
+                        customer_name,
+
+                        customer_email,
+
+                        customer_phone,
+
+                        product_name,
+
+                        quantity,
+
+                        unit_price,
+
+                        subtotal,
+
+                        discount,
+
+                        tax,
+
+                        amount,
+
+                        currency,
+
+                        description,
+
+                        status,
+
+                        payment_id,
+
+                        created_at,
+
+                        updated_at
+
+                    """,
+
+                    (
+                        order_id,
+                        customer_name,
+                        customer_email,
+                        customer_phone,
+                        product_name,
+                        quantity,
+                        unit_price,
+                        subtotal,
+                        discount,
+                        tax,
+                        amount,
+                        currency,
+                        description,
+                        status,
+                    ),
+                )
+
+                row = cursor.fetchone()
+
+            connection.commit()
+
+        return (
+            self._normalize_merchant_order(
+                row
+            )
+            or
+            {}
+        )
+
+    # ========================================================
+    # GET MERCHANT ORDER
+    # ========================================================
+
+    def get_merchant_order(
+        self,
+        order_id: str,
+    ) -> Optional[Dict[str, Any]]:
+
+        with self.connect() as connection:
+
+            with connection.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    SELECT
+
+                        id,
+
+                        order_id,
+
+                        customer_name,
+
+                        customer_email,
+
+                        customer_phone,
+
+                        product_name,
+
+                        quantity,
+
+                        unit_price,
+
+                        subtotal,
+
+                        discount,
+
+                        tax,
+
+                        amount,
+
+                        currency,
+
+                        description,
+
+                        status,
+
+                        payment_id,
+
+                        created_at,
+
+                        updated_at
+
+                    FROM merchant_orders
+
+                    WHERE order_id = %s
+
+                    LIMIT 1
+                    """,
+                    (
+                        order_id,
+                    ),
+                )
+
+                row = cursor.fetchone()
+
+        return (
+            self._normalize_merchant_order(
+                row
+            )
+        )
+
+    # ========================================================
+    # UPDATE MERCHANT ORDER
+    # ========================================================
+
+    def update_merchant_order(
+        self,
+        order_id: str,
+        status: Optional[str] = None,
+        payment_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+
+        fields: List[str] = []
+
+        values: List[Any] = []
+
+        if status is not None:
+
+            fields.append(
+                "status = %s"
+            )
+
+            values.append(
+                status
+            )
+
+        if payment_id is not None:
+
+            fields.append(
+                "payment_id = %s"
+            )
+
+            values.append(
+                payment_id
+            )
+
+        if not fields:
+
+            return (
+                self.get_merchant_order(
+                    order_id
+                )
+            )
+
+        fields.append(
+            "updated_at = NOW()"
+        )
+
+        values.append(
+            order_id
+        )
+
+        query = f"""
+            UPDATE merchant_orders
+            SET
+                {", ".join(fields)}
+            WHERE order_id = %s
+            RETURNING
+
+                id,
+
+                order_id,
+
+                customer_name,
+
+                customer_email,
+
+                customer_phone,
+
+                product_name,
+
+                quantity,
+
+                unit_price,
+
+                subtotal,
+
+                discount,
+
+                tax,
+
+                amount,
+
+                currency,
+
+                description,
+
+                status,
+
+                payment_id,
+
+                created_at,
+
+                updated_at
+        """
+
+        with self.connect() as connection:
+
+            with connection.cursor() as cursor:
+
+                cursor.execute(
+                    query,
+                    tuple(
+                        values
+                    ),
+                )
+
+                row = cursor.fetchone()
+
+            connection.commit()
+
+        return (
+            self._normalize_merchant_order(
+                row
+            )
+        )
+
+    # ========================================================
+    # LIST MERCHANT ORDERS
+    # ========================================================
+
+    def list_merchant_orders(
+        self,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+
+        limit = max(
+            1,
+            min(
+                int(limit),
+                1000,
+            ),
+        )
+
+        with self.connect() as connection:
+
+            with connection.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    SELECT
+
+                        id,
+
+                        order_id,
+
+                        customer_name,
+
+                        customer_email,
+
+                        customer_phone,
+
+                        product_name,
+
+                        quantity,
+
+                        unit_price,
+
+                        subtotal,
+
+                        discount,
+
+                        tax,
+
+                        amount,
+
+                        currency,
+
+                        description,
+
+                        status,
+
+                        payment_id,
+
+                        created_at,
+
+                        updated_at
+
+                    FROM merchant_orders
+
+                    ORDER BY
+                        created_at DESC,
+                        id DESC
+
+                    LIMIT %s
+                    """,
+                    (
+                        limit,
+                    ),
+                )
+
+                rows = cursor.fetchall()
+
+        orders: List[
+            Dict[str, Any]
+        ] = []
+
+        for row in rows:
+
+            normalized = (
+                self._normalize_merchant_order(
+                    row
+                )
+            )
+
+            if normalized is not None:
+
+                orders.append(
+                    normalized
+                )
+
+        return orders
+
+    # ========================================================
     # COMPATIBILITY ALIASES
     # ========================================================
 
@@ -725,23 +1479,20 @@ class PostgresDatabase:
         event_name: str,
         payment_id: Optional[str] = None,
     ) -> None:
-        """
-        Compatibility alias used by older application code.
-        """
 
         self.record_webhook(
-            event_id=event_id,
-            event_name=event_name,
-            payment_id=payment_id,
+            event_id=
+                event_id,
+            event_name=
+                event_name,
+            payment_id=
+                payment_id,
         )
 
     def webhook_event_exists(
         self,
         event_id: str,
     ) -> bool:
-        """
-        Compatibility alias used by older application code.
-        """
 
         return self.webhook_exists(
             event_id

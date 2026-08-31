@@ -1,68 +1,25 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
-
-from datetime import (
-    datetime,
-    timezone,
-)
-
-from typing import (
-    Any,
-    Dict,
-)
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
-
 from dotenv import load_dotenv
+from fastapi import Body, FastAPI, HTTPException, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-from fastapi import (
-    FastAPI,
-    HTTPException,
-    Query,
-    Request,
-)
-
-from fastapi.middleware.cors import (
-    CORSMiddleware,
-)
-
-from pydantic import (
-    BaseModel,
-)
-
-from backend.agents.orchestrator import (
-    MerchantOpsOrchestrator,
-)
-
-from backend.database.audit import (
-    AuditLogger,
-)
-
-from backend.database.postgres import (
-    PostgresDatabase,
-)
-
-from backend.database.webhook_events import (
-    WebhookEventStore,
-)
-
-from backend.tools.payment_provider import (
-    PaymentProvider,
-)
-
-from backend.tools.webhook_processor import (
-    RazorpayWebhookProcessor,
-)
-
-from razorpay.client import (
-    RazorpayClient,
-)
-
-from razorpay.webhook import (
-    RazorpayWebhookVerifier,
-)
+from backend.agents.orchestrator import MerchantOpsOrchestrator
+from backend.database.audit import AuditLogger
+from backend.database.postgres import PostgresDatabase
+from backend.database.webhook_events import WebhookEventStore
+from backend.tools.payment_provider import PaymentProvider
+from backend.tools.webhook_processor import RazorpayWebhookProcessor
+from razorpay.client import RazorpayClient
+from razorpay.webhook import RazorpayWebhookVerifier
 
 
 # ============================================================
@@ -78,15 +35,13 @@ load_dotenv()
 
 app = FastAPI(
     title="MerchantOps AI",
-
     description=(
         "AI-powered merchant intelligence, revenue recovery, "
         "risk analysis, simulation, decision automation, "
-        "payment verification, webhook processing, and "
-        "governed payment operations."
+        "Razorpay payment verification, webhook processing, "
+        "merchant order management, and governance."
     ),
-
-    version="2.5.0",
+    version="2.8.0",
 )
 
 
@@ -99,18 +54,19 @@ API_URL = os.getenv(
     "http://127.0.0.1:8000",
 ).rstrip("/")
 
+CORS_ORIGINS = os.getenv(
+    "CORS_ORIGINS",
+    (
+        "http://127.0.0.1:5500,"
+        "http://localhost:5500,"
+        "http://127.0.0.1:8501,"
+        "http://localhost:8501"
+    ),
+)
 
 cors_origins = [
     origin.strip()
-    for origin in os.getenv(
-        "CORS_ORIGINS",
-        (
-            "http://127.0.0.1:5500,"
-            "http://localhost:5500,"
-            "http://127.0.0.1:8501,"
-            "http://localhost:8501"
-        ),
-    ).split(",")
+    for origin in CORS_ORIGINS.split(",")
     if origin.strip()
 ]
 
@@ -121,19 +77,10 @@ cors_origins = [
 
 app.add_middleware(
     CORSMiddleware,
-
-    allow_origins=
-        cors_origins,
-
+    allow_origins=cors_origins,
     allow_credentials=False,
-
-    allow_methods=[
-        "*"
-    ],
-
-    allow_headers=[
-        "*"
-    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -141,38 +88,341 @@ app.add_middleware(
 # REQUEST MODELS
 # ============================================================
 
-class PaymentVerificationRequest(
-    BaseModel
-):
-    """
-    Razorpay Checkout verification payload.
-    """
+class PaymentVerificationRequest(BaseModel):
+    """Razorpay Checkout payment verification payload."""
 
     razorpay_order_id: str
-
     razorpay_payment_id: str
-
     razorpay_signature: str
+
+
+class CreateOrderRequest(BaseModel):
+    """
+    Merchant-controlled order request.
+
+    Amounts are expressed in INR except the legacy query
+    parameter, which is expressed in paise.
+
+    Example:
+
+    {
+        "amount": 1950,
+        "currency": "INR",
+        "customer_name": "Rahul",
+        "customer_email": "rahul@example.com",
+        "customer_phone": "9876543210",
+        "product_name": "Laptop Backpack",
+        "quantity": 2,
+        "unit_price": 1000,
+        "subtotal": 2000,
+        "discount": 100,
+        "tax": 50,
+        "description": "Laptop Backpack - Black"
+    }
+    """
+
+    amount: Optional[float] = None
+
+    currency: str = "INR"
+
+    customer_name: Optional[str] = None
+
+    customer_email: Optional[str] = None
+
+    customer_phone: Optional[str] = None
+
+    product_name: Optional[str] = None
+
+    quantity: int = 1
+
+    unit_price: float = 0.0
+
+    subtotal: Optional[float] = None
+
+    discount: float = 0.0
+
+    tax: float = 0.0
+
+    description: Optional[str] = (
+        "MerchantOps AI Test Payment"
+    )
 
 
 # ============================================================
 # APPLICATION COMPONENTS
 # ============================================================
 
-audit_logger = (
-    AuditLogger()
+audit_logger = AuditLogger()
+
+webhook_processor = RazorpayWebhookProcessor(
+    audit_logger=audit_logger
 )
 
-webhook_processor = (
-    RazorpayWebhookProcessor(
-        audit_logger=
-            audit_logger
+webhook_event_store = WebhookEventStore()
+
+
+# ============================================================
+# GENERAL HELPERS
+# ============================================================
+
+def get_database_url() -> Optional[str]:
+    """Return DATABASE_URL when configured."""
+
+    return os.getenv("DATABASE_URL")
+
+
+def order_receipt_id() -> str:
+    """Generate a unique Razorpay receipt suffix."""
+
+    return datetime.now(
+        timezone.utc
+    ).strftime(
+        "%Y%m%d%H%M%S%f"
     )
-)
 
-webhook_event_store = (
-    WebhookEventStore()
-)
+
+def normalize_amount_to_rupees(
+    amount_paise: Any,
+) -> float:
+    """Convert paise to INR."""
+
+    return float(amount_paise) / 100
+
+
+def normalize_datetime(
+    value: Any,
+) -> Any:
+    """Convert datetime-like values to ISO strings."""
+
+    if value is None:
+        return None
+
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+
+    return value
+
+
+def normalize_order_numbers(
+    order: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Normalize numeric and datetime fields in a merchant order
+    before returning it through the API.
+    """
+
+    result = dict(order)
+
+    if result.get("quantity") is not None:
+        result["quantity"] = int(
+            result["quantity"]
+        )
+
+    numeric_fields = [
+        "unit_price",
+        "subtotal",
+        "discount",
+        "tax",
+        "amount",
+    ]
+
+    for field in numeric_fields:
+        if result.get(field) is not None:
+            result[field] = float(
+                result[field]
+            )
+
+    for field in [
+        "created_at",
+        "updated_at",
+    ]:
+        result[field] = normalize_datetime(
+            result.get(field)
+        )
+
+    return result
+
+
+# ============================================================
+# MERCHANT ORDER FINANCIAL VALIDATION
+# ============================================================
+
+def validate_merchant_order_amount(
+    *,
+    quantity: int,
+    unit_price: float,
+    subtotal: Optional[float],
+    discount: float,
+    tax: float,
+    amount: float,
+) -> Dict[str, float]:
+    """
+    Validate the merchant pricing structure.
+
+    Formula:
+
+        subtotal = quantity × unit_price
+
+        final amount =
+            subtotal - discount + tax
+    """
+
+    if quantity <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Quantity must be greater than zero."
+            ),
+        )
+
+    if unit_price < 0:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Unit price cannot be negative."
+            ),
+        )
+
+    if discount < 0:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Discount cannot be negative."
+            ),
+        )
+
+    if tax < 0:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Tax cannot be negative."
+            ),
+        )
+
+    calculated_subtotal = (
+        float(quantity)
+        * float(unit_price)
+    )
+
+    if subtotal is None:
+        normalized_subtotal = calculated_subtotal
+
+    else:
+        normalized_subtotal = float(
+            subtotal
+        )
+
+        if abs(
+            normalized_subtotal
+            - calculated_subtotal
+        ) > 0.01:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Subtotal mismatch. "
+                    f"Expected "
+                    f"₹{calculated_subtotal:.2f}, "
+                    f"received "
+                    f"₹{normalized_subtotal:.2f}."
+                ),
+            )
+
+    calculated_amount = (
+        normalized_subtotal
+        - float(discount)
+        + float(tax)
+    )
+
+    if calculated_amount <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Final order amount must be greater than zero."
+            ),
+        )
+
+    if abs(
+        calculated_amount
+        - float(amount)
+    ) > 0.01:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Final amount mismatch. "
+                f"Expected "
+                f"₹{calculated_amount:.2f}, "
+                f"received "
+                f"₹{float(amount):.2f}."
+            ),
+        )
+
+    return {
+        "quantity": float(quantity),
+        "unit_price": round(
+            float(unit_price),
+            2,
+        ),
+        "subtotal": round(
+            normalized_subtotal,
+            2,
+        ),
+        "discount": round(
+            float(discount),
+            2,
+        ),
+        "tax": round(
+            float(tax),
+            2,
+        ),
+        "amount": round(
+            calculated_amount,
+            2,
+        ),
+    }
+
+
+def build_merchant_order_details(
+    *,
+    product_name: Optional[str],
+    quantity: int,
+    unit_price: float,
+    subtotal: float,
+    discount: float,
+    tax: float,
+    amount: float,
+    currency: str,
+    description: Optional[str],
+) -> Dict[str, Any]:
+    """Build normalized order details for persistence/audit."""
+
+    return {
+        "product_name": product_name,
+        "quantity": int(quantity),
+        "unit_price": round(
+            float(unit_price),
+            2,
+        ),
+        "subtotal": round(
+            float(subtotal),
+            2,
+        ),
+        "discount": round(
+            float(discount),
+            2,
+        ),
+        "tax": round(
+            float(tax),
+            2,
+        ),
+        "amount": round(
+            float(amount),
+            2,
+        ),
+        "currency": currency,
+        "description": description,
+    }
 
 
 # ============================================================
@@ -182,13 +432,7 @@ webhook_event_store = (
 def load_payment_data(
     source: str,
 ) -> pd.DataFrame:
-    """
-    Load payment data from the selected provider.
-
-    Supported:
-        csv
-        razorpay
-    """
+    """Load payment data from CSV or Razorpay."""
 
     source = (
         source
@@ -200,16 +444,13 @@ def load_payment_data(
         "csv",
         "razorpay",
     }:
-
         raise ValueError(
             "Invalid payment source. "
             "Use 'csv' or 'razorpay'."
         )
 
-    provider = (
-        PaymentProvider(
-            mode=source
-        )
+    provider = PaymentProvider(
+        mode=source
     )
 
     return provider.load()
@@ -222,86 +463,47 @@ def load_payment_data(
 def empty_analysis(
     source: str,
 ) -> Dict[str, Any]:
-    """
-    Return an empty MerchantOps analysis.
-    """
 
     return {
-
-        "source":
-            source,
+        "source": source,
 
         "operations": {
-
-            "total_payments":
-                0,
-
-            "failed_payments":
-                0,
-
-            "captured_payments":
-                0,
-
-            "failure_rate":
-                0.0,
-
-            "revenue_at_risk":
-                0.0,
+            "total_payments": 0,
+            "failed_payments": 0,
+            "captured_payments": 0,
+            "failure_rate": 0.0,
+            "revenue_at_risk": 0.0,
         },
 
-        "recovery_candidates":
-            0,
+        "recovery_candidates": 0,
 
-        "risk_candidates":
-            0,
+        "risk_candidates": 0,
 
-        "simulated_candidates":
-            0,
+        "simulated_candidates": 0,
 
-        "decisions":
-            0,
+        "decisions": 0,
 
         "action_counts": {
-
-            "RETRY_NOW":
-                0,
-
-            "RETRY_LATER":
-                0,
-
-            "REVIEW":
-                0,
-
-            "DO_NOTHING":
-                0,
+            "RETRY_NOW": 0,
+            "RETRY_LATER": 0,
+            "REVIEW": 0,
+            "DO_NOTHING": 0,
         },
 
         "execution_modes": {
-
-            "MERCHANT_APPROVAL":
-                0,
-
-            "SCHEDULED_TEST_ACTION":
-                0,
-
-            "BLOCKED":
-                0,
-
-            "NO_ACTION":
-                0,
+            "MERCHANT_APPROVAL": 0,
+            "SCHEDULED_TEST_ACTION": 0,
+            "BLOCKED": 0,
+            "NO_ACTION": 0,
         },
 
-        "approval_required":
-            0,
+        "approval_required": 0,
 
-        "allowed_actions":
-            0,
+        "allowed_actions": 0,
 
-        "blocked_actions":
-            0,
+        "blocked_actions": 0,
 
-        "decision_records":
-            [],
+        "decision_records": [],
     }
 
 
@@ -312,9 +514,6 @@ def empty_analysis(
 def run_merchantops(
     source: str,
 ) -> Dict[str, Any]:
-    """
-    Execute the complete MerchantOps AI pipeline.
-    """
 
     try:
 
@@ -325,11 +524,8 @@ def run_merchantops(
         )
 
         if payments_df.empty:
-
-            return (
-                empty_analysis(
-                    source
-                )
+            return empty_analysis(
+                source
             )
 
         orchestrator = (
@@ -342,16 +538,15 @@ def run_merchantops(
             orchestrator.run()
         )
 
-        result[
-            "source"
-        ] = source
+        result["source"] = source
 
         return result
 
     except Exception as exc:
 
         raise RuntimeError(
-            f"MerchantOps pipeline failed: {exc}"
+            "MerchantOps pipeline failed: "
+            f"{exc}"
         ) from exc
 
 
@@ -361,45 +556,29 @@ def run_merchantops(
 
 @app.get("/")
 def root() -> Dict[str, str]:
-    """
-    API root endpoint.
-    """
 
     return {
-
-        "service":
-            "MerchantOps AI",
-
-        "status":
-            "running",
-
-        "version":
-            app.version,
-
-        "docs":
-            "/docs",
-
-        "webhook":
-            "/webhooks/razorpay",
-
+        "service": "MerchantOps AI",
+        "status": "running",
+        "version": app.version,
+        "docs": "/docs",
+        "webhook": "/webhooks/razorpay",
         "payment_verification":
             "/razorpay/verify-payment",
-
+        "create_order":
+            "/razorpay/create-order",
+        "merchant_orders":
+            "/merchant/orders",
         "api_url":
             API_URL,
-
         "database_health":
             "/health/database",
-
         "activity_stats":
             "/activity/stats",
-
         "audit":
             "/audit",
-
         "webhook_events":
             "/webhooks/events",
-
         "verified_payments":
             "/payments/verified",
     }
@@ -409,21 +588,65 @@ def root() -> Dict[str, str]:
 # HEALTH
 # ============================================================
 
-@app.get(
-    "/health"
-)
+@app.get("/health")
 def health() -> Dict[str, str]:
-    """
-    Basic API health check.
-    """
 
     return {
+        "status": "healthy",
+        "service": "MerchantOps AI",
+    }
 
-        "status":
-            "healthy",
 
-        "service":
-            "MerchantOps AI",
+# ============================================================
+# RAZORPAY FINGERPRINT
+# ============================================================
+
+@app.get(
+    "/health/razorpay-fingerprint"
+)
+def razorpay_fingerprint() -> Dict[str, Any]:
+
+    key_id = os.getenv(
+        "RAZORPAY_KEY_ID"
+    )
+
+    key_secret = os.getenv(
+        "RAZORPAY_KEY_SECRET"
+    )
+
+    webhook_secret = os.getenv(
+        "RAZORPAY_WEBHOOK_SECRET"
+    )
+
+    fingerprint = None
+
+    if key_secret:
+
+        fingerprint = (
+            hashlib
+            .sha256(
+                key_secret.encode(
+                    "utf-8"
+                )
+            )
+            .hexdigest()[:12]
+        )
+
+    return {
+        "key_id_present":
+            bool(key_id),
+
+        "key_id":
+            key_id,
+
+        "key_secret_present":
+            bool(key_secret),
+
+        "key_secret_fingerprint":
+            fingerprint,
+
+        "webhook_secret_present":
+            bool(webhook_secret),
     }
 
 
@@ -435,31 +658,22 @@ def health() -> Dict[str, str]:
     "/health/database"
 )
 def database_health() -> Dict[str, Any]:
-    """
-    Check PostgreSQL connectivity and record counts.
-    """
 
     try:
 
-        database_url = os.getenv(
-            "DATABASE_URL"
+        database_url = (
+            get_database_url()
         )
 
         if not database_url:
 
             return {
-
-                "api":
-                    "healthy",
-
-                "database":
-                    "not_configured",
-
-                "message":
-                    (
-                        "DATABASE_URL is not configured. "
-                        "Local file-based persistence is active."
-                    ),
+                "api": "healthy",
+                "database": "not_configured",
+                "message": (
+                    "DATABASE_URL is not configured. "
+                    "Local file-based persistence is active."
+                ),
             }
 
         database = (
@@ -475,62 +689,37 @@ def database_health() -> Dict[str, Any]:
         )
 
         return {
-
-            "api":
-                "healthy",
-
-            "database":
-                "healthy",
-
+            "api": "healthy",
+            "database": "healthy",
             "audit_logs":
-                stats[
-                    "audit_logs"
-                ],
-
+                stats["audit_logs"],
             "webhook_events":
-                stats[
-                    "webhook_events"
-                ],
+                stats["webhook_events"],
         }
 
     except Exception as exc:
 
         return {
-
-            "api":
-                "healthy",
-
-            "database":
-                "unhealthy",
-
-            "error":
-                str(exc),
+            "api": "healthy",
+            "database": "unhealthy",
+            "error": str(exc),
         }
 
 
 # ============================================================
-# ACTIVITY STATISTICS
+# ACTIVITY STATS
 # ============================================================
 
 @app.get(
     "/activity/stats"
 )
 def activity_stats() -> Dict[str, Any]:
-    """
-    Return aggregate MerchantOps activity statistics.
-
-    Production counts come directly from PostgreSQL.
-    """
 
     try:
 
-        database_url = os.getenv(
-            "DATABASE_URL"
+        database_url = (
+            get_database_url()
         )
-
-        # ----------------------------------------------------
-        # Production
-        # ----------------------------------------------------
 
         if database_url:
 
@@ -543,11 +732,11 @@ def activity_stats() -> Dict[str, Any]:
             database.initialize()
 
             stats = (
-                database.get_activity_stats()
+                database
+                .get_activity_stats()
             )
 
             return {
-
                 "storage":
                     "postgresql",
 
@@ -572,54 +761,37 @@ def activity_stats() -> Dict[str, Any]:
                     ],
             }
 
-        # ----------------------------------------------------
-        # Local fallback
-        # ----------------------------------------------------
-
         events = (
             audit_logger.read_events()
         )
 
         verification_events = [
             event
-
             for event in events
-
             if event.get(
                 "event_type"
-            )
-            ==
-            "PAYMENT_VERIFICATION"
+            ) == "PAYMENT_VERIFICATION"
         ]
 
         verified_payments = [
             event
-
-            for event in verification_events
-
+            for event
+            in verification_events
             if event.get(
                 "status"
-            )
-            ==
-            "VERIFIED"
+            ) == "VERIFIED"
         ]
 
         webhook_processing = [
             event
-
             for event in events
-
             if event.get(
                 "event_type"
-            )
-            ==
-            "WEBHOOK_PROCESSING"
+            ) == "WEBHOOK_PROCESSING"
         ]
 
         return {
-
-            "storage":
-                "local",
+            "storage": "local",
 
             "verified_payments":
                 len(
@@ -649,30 +821,22 @@ def activity_stats() -> Dict[str, Any]:
 
 
 # ============================================================
-# AUDIT EVENTS
+# AUDIT
 # ============================================================
 
-@app.get(
-    "/audit"
-)
+@app.get("/audit")
 def get_audit_events(
     limit: int = Query(
         default=100,
         ge=1,
         le=1000,
-        description=(
-            "Maximum number of audit events to return."
-        ),
     ),
 ) -> Dict[str, Any]:
-    """
-    Return audit events.
-    """
 
     try:
 
-        database_url = os.getenv(
-            "DATABASE_URL"
+        database_url = (
+            get_database_url()
         )
 
         if database_url:
@@ -693,7 +857,6 @@ def get_audit_events(
             )
 
             return {
-
                 "count":
                     len(events),
 
@@ -715,7 +878,6 @@ def get_audit_events(
         )
 
         return {
-
             "count":
                 len(events),
 
@@ -742,14 +904,11 @@ def get_audit_events(
     "/webhooks/events"
 )
 def get_webhook_events() -> Dict[str, Any]:
-    """
-    Return stored Razorpay webhook events.
-    """
 
     try:
 
-        database_url = os.getenv(
-            "DATABASE_URL"
+        database_url = (
+            get_database_url()
         )
 
         if database_url:
@@ -768,7 +927,6 @@ def get_webhook_events() -> Dict[str, Any]:
             )
 
             return {
-
                 "count":
                     len(events),
 
@@ -780,15 +938,9 @@ def get_webhook_events() -> Dict[str, Any]:
             }
 
         return {
-
-            "count":
-                0,
-
-            "events":
-                [],
-
-            "storage":
-                "local",
+            "count": 0,
+            "events": [],
+            "storage": "local",
         }
 
     except Exception as exc:
@@ -807,14 +959,11 @@ def get_webhook_events() -> Dict[str, Any]:
     "/payments/verified"
 )
 def get_verified_payments() -> Dict[str, Any]:
-    """
-    Return successfully verified Razorpay payments.
-    """
 
     try:
 
-        database_url = os.getenv(
-            "DATABASE_URL"
+        database_url = (
+            get_database_url()
         )
 
         if database_url:
@@ -857,7 +1006,6 @@ def get_verified_payments() -> Dict[str, Any]:
                 !=
                 "PAYMENT_VERIFICATION"
             ):
-
                 continue
 
             if (
@@ -867,7 +1015,6 @@ def get_verified_payments() -> Dict[str, Any]:
                 !=
                 "VERIFIED"
             ):
-
                 continue
 
             payment_id = (
@@ -877,19 +1024,18 @@ def get_verified_payments() -> Dict[str, Any]:
             )
 
             if not payment_id:
-
                 continue
 
             details = (
                 event.get(
                     "details",
-                    {}
+                    {},
                 )
+                or {}
             )
 
             verified.append(
                 {
-
                     "timestamp":
                         event.get(
                             "timestamp"
@@ -948,11 +1094,8 @@ def get_verified_payments() -> Dict[str, Any]:
         verified.reverse()
 
         return {
-
             "count":
-                len(
-                    verified
-                ),
+                len(verified),
 
             "payments":
                 verified,
@@ -970,54 +1113,439 @@ def get_verified_payments() -> Dict[str, Any]:
 
 
 # ============================================================
-# RAZORPAY CREATE ORDER
+# CREATE RAZORPAY ORDER
 # ============================================================
 
 @app.post(
     "/razorpay/create-order"
 )
 def create_razorpay_order(
-    amount: int = Query(
-        default=50000,
+    amount: Optional[int] = Query(
+        default=None,
         description=(
-            "Amount in paise. "
-            "₹500 = 50000."
+            "Legacy amount in paise. "
+            "Example: ₹500 = 50000."
         ),
     ),
+
+    body: Optional[
+        CreateOrderRequest
+    ] = Body(
+        default=None
+    ),
 ) -> Dict[str, Any]:
-    """
-    Create Razorpay Test Mode order.
-    """
 
     try:
 
-        if amount <= 0:
+        # ====================================================
+        # LEGACY QUERY MODE
+        # ====================================================
+
+        if body is None:
+
+            if amount is None:
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Amount is required."
+                    ),
+                )
+
+            if amount <= 0:
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Amount must be greater than zero."
+                    ),
+                )
+
+            amount_paise = int(
+                amount
+            )
+
+            amount_rupees = (
+                amount_paise / 100
+            )
+
+            currency = "INR"
+
+            customer_name = None
+            customer_email = None
+            customer_phone = None
+
+            product_name = None
+
+            quantity = 1
+
+            unit_price = (
+                amount_rupees
+            )
+
+            subtotal = (
+                amount_rupees
+            )
+
+            discount = 0.0
+            tax = 0.0
+
+            description = (
+                "MerchantOps AI Test Payment"
+            )
+
+        # ====================================================
+        # MERCHANT JSON MODE
+        # ====================================================
+
+        else:
+
+            if body.amount is None:
+
+                raise HTTPException(
+                    status_code=400,
+                    detail="amount is required.",
+                )
+
+            if body.amount <= 0:
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Amount must be greater than zero."
+                    ),
+                )
+
+            currency = (
+                body.currency
+                or
+                "INR"
+            ).upper()
+
+            if currency != "INR":
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Currently only INR "
+                        "orders are supported."
+                    ),
+                )
+
+            customer_name = (
+                body.customer_name
+            )
+
+            customer_email = (
+                body.customer_email
+            )
+
+            customer_phone = (
+                body.customer_phone
+            )
+
+            product_name = (
+                body.product_name
+            )
+
+            quantity = int(
+                body.quantity
+            )
+
+            unit_price = float(
+                body.unit_price
+            )
+
+            discount = float(
+                body.discount
+            )
+
+            tax = float(
+                body.tax
+            )
+
+            amount_rupees = float(
+                body.amount
+            )
+
+            breakdown = (
+                validate_merchant_order_amount(
+
+                    quantity=
+                        quantity,
+
+                    unit_price=
+                        unit_price,
+
+                    subtotal=
+                        body.subtotal,
+
+                    discount=
+                        discount,
+
+                    tax=
+                        tax,
+
+                    amount=
+                        amount_rupees,
+                )
+            )
+
+            quantity = int(
+                breakdown[
+                    "quantity"
+                ]
+            )
+
+            unit_price = (
+                breakdown[
+                    "unit_price"
+                ]
+            )
+
+            subtotal = (
+                breakdown[
+                    "subtotal"
+                ]
+            )
+
+            discount = (
+                breakdown[
+                    "discount"
+                ]
+            )
+
+            tax = (
+                breakdown[
+                    "tax"
+                ]
+            )
+
+            amount_rupees = (
+                breakdown[
+                    "amount"
+                ]
+            )
+
+            description = (
+                body.description
+                or
+                product_name
+                or
+                "MerchantOps AI Test Payment"
+            )
+
+
+        # ====================================================
+        # RAZORPAY AMOUNT
+        # ====================================================
+
+        amount_paise = int(
+            round(
+                amount_rupees * 100
+            )
+        )
+
+
+        if amount_paise <= 0:
 
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Amount must be greater than zero."
+                    "Amount must result in "
+                    "at least 1 paise."
                 ),
             )
+
+
+        # ====================================================
+        # RAZORPAY ORDER
+        # ====================================================
 
         client = (
             RazorpayClient()
         )
 
+
         order = (
             client.create_order(
-                amount=amount,
-                currency="INR",
+
+                amount=
+                    amount_paise,
+
+                currency=
+                    currency,
+
                 receipt=(
-                    "merchantops_test_order"
+                    "merchantops_"
+                    +
+                    order_receipt_id()
                 ),
             )
         )
 
+
+        razorpay_order_id = (
+            order["id"]
+        )
+
+
+        # ====================================================
+        # ORDER DETAILS
+        # ====================================================
+
+        merchant_order_details = (
+            build_merchant_order_details(
+
+                product_name=
+                    product_name,
+
+                quantity=
+                    quantity,
+
+                unit_price=
+                    unit_price,
+
+                subtotal=
+                    subtotal,
+
+                discount=
+                    discount,
+
+                tax=
+                    tax,
+
+                amount=
+                    amount_rupees,
+
+                currency=
+                    currency,
+
+                description=
+                    description,
+            )
+        )
+
+
+        # ====================================================
+        # POSTGRESQL
+        # ====================================================
+
+        database_url = (
+            get_database_url()
+        )
+
+        merchant_order = None
+
+
+        if database_url:
+
+            database = (
+                PostgresDatabase(
+                    database_url
+                )
+            )
+
+            database.initialize()
+
+            merchant_order = (
+                database
+                .create_merchant_order(
+
+                    order_id=
+                        razorpay_order_id,
+
+                    amount=
+                        amount_rupees,
+
+                    currency=
+                        currency,
+
+                    customer_name=
+                        customer_name,
+
+                    customer_email=
+                        customer_email,
+
+                    customer_phone=
+                        customer_phone,
+
+                    product_name=
+                        product_name,
+
+                    quantity=
+                        quantity,
+
+                    unit_price=
+                        unit_price,
+
+                    subtotal=
+                        subtotal,
+
+                    discount=
+                        discount,
+
+                    tax=
+                        tax,
+
+                    description=
+                        description,
+
+                    status=
+                        "CREATED",
+                )
+            )
+
+
+        # ====================================================
+        # LOCAL AUDIT
+        # ====================================================
+
+        audit_logger.log_event(
+
+            event_type=
+                "RAZORPAY_ORDER_CREATED",
+
+            action=
+                "CREATE_ORDER",
+
+            status=
+                "CREATED",
+
+            details={
+
+                "order_id":
+                    razorpay_order_id,
+
+                "customer_name":
+                    customer_name,
+
+                "customer_email":
+                    customer_email,
+
+                "customer_phone":
+                    customer_phone,
+
+                **merchant_order_details,
+
+                "storage":
+                    (
+                        "postgresql"
+                        if database_url
+                        else "local"
+                    ),
+            },
+        )
+
+
+        # ====================================================
+        # RESPONSE
+        # ====================================================
+
         return {
 
             "order_id":
-                order["id"],
+                razorpay_order_id,
 
             "amount":
                 order["amount"],
@@ -1027,11 +1555,68 @@ def create_razorpay_order(
 
             "status":
                 order["status"],
+
+            "customer": {
+
+                "name":
+                    customer_name,
+
+                "email":
+                    customer_email,
+
+                "phone":
+                    customer_phone,
+            },
+
+            "order": {
+
+                "product_name":
+                    product_name,
+
+                "quantity":
+                    quantity,
+
+                "unit_price":
+                    unit_price,
+
+                "subtotal":
+                    subtotal,
+
+                "discount":
+                    discount,
+
+                "tax":
+                    tax,
+
+                "final_amount":
+                    amount_rupees,
+
+                "currency":
+                    currency,
+
+                "description":
+                    description,
+            },
+
+            "description":
+                description,
+
+            "storage":
+                (
+                    "postgresql"
+                    if database_url
+                    else "local"
+                ),
+
+            "merchant_order":
+                merchant_order,
         }
+
 
     except HTTPException:
 
         raise
+
 
     except Exception as exc:
 
@@ -1042,7 +1627,7 @@ def create_razorpay_order(
 
 
 # ============================================================
-# RAZORPAY PAYMENT VERIFICATION
+# VERIFY RAZORPAY PAYMENT
 # ============================================================
 
 @app.post(
@@ -1052,21 +1637,6 @@ def verify_razorpay_payment(
     payload:
         PaymentVerificationRequest,
 ) -> Dict[str, Any]:
-    """
-    Verify Razorpay Checkout payment signature.
-
-    Successful flow:
-
-        Checkout
-            ↓
-        Signature verification
-            ↓
-        Razorpay payment lookup
-            ↓
-        PostgreSQL audit_logs
-            ↓
-        /payments/verified
-    """
 
     try:
 
@@ -1074,12 +1644,14 @@ def verify_razorpay_payment(
             RazorpayClient()
         )
 
-        # ----------------------------------------------------
-        # 1. Verify signature
-        # ----------------------------------------------------
+
+        # ====================================================
+        # SIGNATURE VERIFICATION
+        # ====================================================
 
         verified = (
-            client.verify_payment_signature(
+            client
+            .verify_payment_signature(
 
                 order_id=
                     payload.razorpay_order_id,
@@ -1092,9 +1664,10 @@ def verify_razorpay_payment(
             )
         )
 
-        # ----------------------------------------------------
-        # 2. Rejected signature
-        # ----------------------------------------------------
+
+        # ====================================================
+        # INVALID SIGNATURE
+        # ====================================================
 
         if not verified:
 
@@ -1142,9 +1715,11 @@ def verify_razorpay_payment(
                 },
             }
 
-            database_url = os.getenv(
-                "DATABASE_URL"
+
+            database_url = (
+                get_database_url()
             )
+
 
             if database_url:
 
@@ -1190,6 +1765,7 @@ def verify_razorpay_payment(
                     "local"
                 )
 
+
             return {
 
                 "verified":
@@ -1217,9 +1793,10 @@ def verify_razorpay_payment(
                     ),
             }
 
-        # ----------------------------------------------------
-        # 3. Fetch trusted payment
-        # ----------------------------------------------------
+
+        # ====================================================
+        # FETCH TRUSTED RAZORPAY PAYMENT
+        # ====================================================
 
         payment = (
             client.fetch_payment(
@@ -1227,9 +1804,6 @@ def verify_razorpay_payment(
             )
         )
 
-        # ----------------------------------------------------
-        # 4. Extract trusted values
-        # ----------------------------------------------------
 
         amount_paise = (
             payment.get(
@@ -1237,38 +1811,35 @@ def verify_razorpay_payment(
             )
         )
 
+
         amount_rupees = (
 
-            float(
+            normalize_amount_to_rupees(
                 amount_paise
-            ) / 100
+            )
 
             if amount_paise is not None
-
             else None
         )
 
-        payment_id = (
 
+        payment_id = (
             payment.get(
                 "id"
             )
-
             or
-
             payload.razorpay_payment_id
         )
 
-        order_id = (
 
+        order_id = (
             payment.get(
                 "order_id"
             )
-
             or
-
             payload.razorpay_order_id
         )
+
 
         payment_status = (
             payment.get(
@@ -1276,11 +1847,13 @@ def verify_razorpay_payment(
             )
         )
 
+
         currency = (
             payment.get(
                 "currency"
             )
         )
+
 
         payment_method = (
             payment.get(
@@ -1288,11 +1861,13 @@ def verify_razorpay_payment(
             )
         )
 
+
         email = (
             payment.get(
                 "email"
             )
         )
+
 
         contact = (
             payment.get(
@@ -1300,11 +1875,13 @@ def verify_razorpay_payment(
             )
         )
 
+
         created_at = (
             payment.get(
                 "created_at"
             )
         )
+
 
         captured = (
             payment.get(
@@ -1312,26 +1889,28 @@ def verify_razorpay_payment(
             )
         )
 
+
         amount_refunded = (
             payment.get(
                 "amount_refunded"
             )
         )
 
+
         amount_refunded_rupees = (
 
-            float(
+            normalize_amount_to_rupees(
                 amount_refunded
-            ) / 100
+            )
 
             if amount_refunded is not None
-
             else None
         )
 
-        # ----------------------------------------------------
-        # 5. Build verification event
-        # ----------------------------------------------------
+
+        # ====================================================
+        # VERIFICATION EVENT
+        # ====================================================
 
         verification_event = {
 
@@ -1398,13 +1977,15 @@ def verify_razorpay_payment(
             },
         }
 
-        # ----------------------------------------------------
-        # 6. Persist directly
-        # ----------------------------------------------------
 
-        database_url = os.getenv(
-            "DATABASE_URL"
+        # ====================================================
+        # PERSIST VERIFICATION
+        # ====================================================
+
+        database_url = (
+            get_database_url()
         )
+
 
         if database_url:
 
@@ -1416,15 +1997,29 @@ def verify_razorpay_payment(
 
             database.initialize()
 
+
             database.insert_audit_event(
                 verification_event
             )
 
-            audit_recorded = True
+
+            database.update_merchant_order(
+
+                order_id=
+                    order_id,
+
+                status=
+                    "VERIFIED",
+
+                payment_id=
+                    payment_id,
+            )
+
 
             audit_storage = (
                 "postgresql"
             )
+
 
         else:
 
@@ -1448,15 +2043,15 @@ def verify_razorpay_payment(
                     ],
             )
 
-            audit_recorded = True
 
             audit_storage = (
                 "local"
             )
 
-        # ----------------------------------------------------
-        # 7. Return
-        # ----------------------------------------------------
+
+        # ====================================================
+        # RESPONSE
+        # ====================================================
 
         return {
 
@@ -1467,7 +2062,7 @@ def verify_razorpay_payment(
                 "verified",
 
             "audit_recorded":
-                audit_recorded,
+                True,
 
             "audit_storage":
                 audit_storage,
@@ -1509,9 +2104,11 @@ def verify_razorpay_payment(
             },
         }
 
+
     except HTTPException:
 
         raise
+
 
     except Exception as exc:
 
@@ -1522,7 +2119,641 @@ def verify_razorpay_payment(
 
 
 # ============================================================
-# PAYMENTS
+# LOCAL ORDER RECONSTRUCTION
+# ============================================================
+
+def reconstruct_local_orders(
+    events: List[Dict[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Reconstruct merchant orders from the local audit trail.
+
+    This is important for local development where PostgreSQL
+    is not configured.
+
+    New order records contain the full commercial breakdown:
+
+        product_name
+        quantity
+        unit_price
+        subtotal
+        discount
+        tax
+        amount
+    """
+
+    orders_by_id: Dict[
+        str,
+        Dict[str, Any],
+    ] = {}
+
+
+    # ========================================================
+    # ORDER CREATION EVENTS
+    # ========================================================
+
+    for event in events:
+
+        if (
+            event.get(
+                "event_type"
+            )
+            !=
+            "RAZORPAY_ORDER_CREATED"
+        ):
+            continue
+
+
+        details = (
+            event.get(
+                "details",
+                {},
+            )
+            or {}
+        )
+
+
+        order_id = (
+            details.get(
+                "order_id"
+            )
+        )
+
+
+        if not order_id:
+            continue
+
+
+        orders_by_id[
+            order_id
+        ] = {
+
+            "order_id":
+                order_id,
+
+            "customer_name":
+                details.get(
+                    "customer_name"
+                ),
+
+            "customer_email":
+                details.get(
+                    "customer_email"
+                ),
+
+            "customer_phone":
+                details.get(
+                    "customer_phone"
+                ),
+
+            # -----------------------------------------------
+            # COMPLETE COMMERCIAL BREAKDOWN
+            # -----------------------------------------------
+
+            "product_name":
+                details.get(
+                    "product_name"
+                ),
+
+            "quantity":
+                details.get(
+                    "quantity",
+                    1,
+                ),
+
+            "unit_price":
+                details.get(
+                    "unit_price"
+                ),
+
+            "subtotal":
+                details.get(
+                    "subtotal"
+                ),
+
+            "discount":
+                details.get(
+                    "discount",
+                    0.0,
+                ),
+
+            "tax":
+                details.get(
+                    "tax",
+                    0.0,
+                ),
+
+            "amount":
+                details.get(
+                    "amount"
+                ),
+
+            "currency":
+                details.get(
+                    "currency",
+                    "INR",
+                ),
+
+            "description":
+                details.get(
+                    "description"
+                ),
+
+            "status":
+                "CREATED",
+
+            "payment_id":
+                None,
+
+            "created_at":
+                event.get(
+                    "timestamp"
+                ),
+
+            "updated_at":
+                event.get(
+                    "timestamp"
+                ),
+        }
+
+
+    # ========================================================
+    # PAYMENT VERIFICATION EVENTS
+    # ========================================================
+
+    for event in events:
+
+        if (
+            event.get(
+                "event_type"
+            )
+            !=
+            "PAYMENT_VERIFICATION"
+        ):
+            continue
+
+
+        details = (
+            event.get(
+                "details",
+                {},
+            )
+            or {}
+        )
+
+
+        order_id = (
+            details.get(
+                "order_id"
+            )
+        )
+
+
+        if not order_id:
+            continue
+
+
+        payment_id = (
+            event.get(
+                "payment_id"
+            )
+        )
+
+
+        verification_status = (
+            event.get(
+                "status"
+            )
+        )
+
+
+        # ----------------------------------------------------
+        # Create fallback order if only verification exists.
+        # ----------------------------------------------------
+
+        if order_id not in orders_by_id:
+
+            orders_by_id[
+                order_id
+            ] = {
+
+                "order_id":
+                    order_id,
+
+                "customer_name":
+                    None,
+
+                "customer_email":
+                    details.get(
+                        "email"
+                    ),
+
+                "customer_phone":
+                    details.get(
+                        "contact"
+                    ),
+
+                "product_name":
+                    None,
+
+                "quantity":
+                    1,
+
+                "unit_price":
+                    None,
+
+                "subtotal":
+                    None,
+
+                "discount":
+                    0.0,
+
+                "tax":
+                    0.0,
+
+                "amount":
+                    details.get(
+                        "amount"
+                    ),
+
+                "currency":
+                    details.get(
+                        "currency",
+                        "INR",
+                    ),
+
+                "description":
+                    None,
+
+                "status":
+                    (
+                        "VERIFIED"
+                        if
+                        verification_status
+                        ==
+                        "VERIFIED"
+                        else
+                        "UNKNOWN"
+                    ),
+
+                "payment_id":
+                    payment_id,
+
+                "created_at":
+                    event.get(
+                        "timestamp"
+                    ),
+
+                "updated_at":
+                    event.get(
+                        "timestamp"
+                    ),
+            }
+
+            continue
+
+
+        # ----------------------------------------------------
+        # Merge verification information into existing order.
+        # ----------------------------------------------------
+
+        order = (
+            orders_by_id[
+                order_id
+            ]
+        )
+
+
+        if payment_id:
+
+            order[
+                "payment_id"
+            ] = payment_id
+
+
+        if (
+            verification_status
+            ==
+            "VERIFIED"
+        ):
+
+            order[
+                "status"
+            ] = "VERIFIED"
+
+
+        order[
+            "updated_at"
+        ] = event.get(
+            "timestamp"
+        )
+
+
+        # ----------------------------------------------------
+        # Fill customer/payment fields when missing.
+        # ----------------------------------------------------
+
+        if not order.get(
+            "customer_email"
+        ):
+
+            order[
+                "customer_email"
+            ] = details.get(
+                "email"
+            )
+
+
+        if not order.get(
+            "customer_phone"
+        ):
+
+            order[
+                "customer_phone"
+            ] = details.get(
+                "contact"
+            )
+
+
+        if order.get(
+            "amount"
+        ) is None:
+
+            order[
+                "amount"
+            ] = details.get(
+                "amount"
+            )
+
+
+        if not order.get(
+            "currency"
+        ):
+
+            order[
+                "currency"
+            ] = details.get(
+                "currency",
+                "INR",
+            )
+
+
+    # ========================================================
+    # NORMALIZE ALL LOCAL ORDERS
+    # ========================================================
+
+    for order_id, order in (
+        list(
+            orders_by_id.items()
+        )
+    ):
+
+        orders_by_id[
+            order_id
+        ] = normalize_order_numbers(
+            order
+        )
+
+
+    return orders_by_id
+
+
+# ============================================================
+# MERCHANT ORDERS
+# ============================================================
+
+@app.get(
+    "/merchant/orders"
+)
+def get_merchant_orders(
+    limit: int = Query(
+        default=100,
+        ge=1,
+        le=1000,
+    ),
+) -> Dict[str, Any]:
+
+    try:
+
+        database_url = (
+            get_database_url()
+        )
+
+
+        # ====================================================
+        # PRODUCTION
+        # ====================================================
+
+        if database_url:
+
+            database = (
+                PostgresDatabase(
+                    database_url
+                )
+            )
+
+            database.initialize()
+
+            orders = (
+                database
+                .list_merchant_orders(
+                    limit
+                )
+            )
+
+            return {
+
+                "count":
+                    len(orders),
+
+                "orders":
+                    orders,
+
+                "storage":
+                    "postgresql",
+            }
+
+
+        # ====================================================
+        # LOCAL
+        # ====================================================
+
+        events = (
+            audit_logger.read_events()
+        )
+
+
+        orders_by_id = (
+            reconstruct_local_orders(
+                events
+            )
+        )
+
+
+        orders = list(
+            orders_by_id.values()
+        )
+
+
+        # ----------------------------------------------------
+        # Newest first
+        # ----------------------------------------------------
+
+        orders.sort(
+            key=lambda order:
+                order.get(
+                    "created_at"
+                )
+                or
+                "",
+            reverse=True,
+        )
+
+
+        orders = orders[
+            :limit
+        ]
+
+
+        return {
+
+            "count":
+                len(orders),
+
+            "orders":
+                orders,
+
+            "storage":
+                "local",
+        }
+
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(exc),
+        ) from exc
+
+
+# ============================================================
+# SINGLE MERCHANT ORDER
+# ============================================================
+
+@app.get(
+    "/merchant/orders/{order_id}"
+)
+def get_single_merchant_order(
+    order_id: str,
+) -> Dict[str, Any]:
+
+    try:
+
+        database_url = (
+            get_database_url()
+        )
+
+
+        # ====================================================
+        # POSTGRESQL
+        # ====================================================
+
+        if database_url:
+
+            database = (
+                PostgresDatabase(
+                    database_url
+                )
+            )
+
+            database.initialize()
+
+            order = (
+                database
+                .get_merchant_order(
+                    order_id
+                )
+            )
+
+
+            if order is None:
+
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        "Merchant order not found."
+                    ),
+                )
+
+
+            return {
+
+                "order":
+                    order,
+
+                "storage":
+                    "postgresql",
+            }
+
+
+        # ====================================================
+        # LOCAL
+        # ====================================================
+
+        events = (
+            audit_logger.read_events()
+        )
+
+
+        orders_by_id = (
+            reconstruct_local_orders(
+                events
+            )
+        )
+
+
+        order = (
+            orders_by_id.get(
+                order_id
+            )
+        )
+
+
+        if order is None:
+
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "Merchant order not found."
+                ),
+            )
+
+
+        return {
+
+            "order":
+                order,
+
+            "storage":
+                "local",
+        }
+
+
+    except HTTPException:
+
+        raise
+
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(exc),
+        ) from exc
+
+
+# ============================================================
+# PAYMENTS ANALYTICS
 # ============================================================
 
 @app.get(
@@ -1531,15 +2762,8 @@ def verify_razorpay_payment(
 def payments(
     source: str = Query(
         default="csv",
-        description=(
-            "Payment source: "
-            "csv or razorpay"
-        ),
     ),
 ) -> Dict[str, Any]:
-    """
-    Return payment statistics.
-    """
 
     try:
 
@@ -1548,6 +2772,7 @@ def payments(
                 source
             )
         )
+
 
         if df.empty:
 
@@ -1572,32 +2797,41 @@ def payments(
                     0.0,
             }
 
+
         status = (
-            df["status"]
+            df[
+                "status"
+            ]
             .astype(str)
             .str.lower()
             .str.strip()
         )
 
+
         failed_mask = (
             status == "failed"
         )
+
 
         captured_mask = (
             status == "captured"
         )
 
+
         total_payments = len(
             df
         )
+
 
         failed_payments = int(
             failed_mask.sum()
         )
 
+
         captured_payments = int(
             captured_mask.sum()
         )
+
 
         revenue_at_risk = float(
             df.loc[
@@ -1606,16 +2840,19 @@ def payments(
             ].sum()
         )
 
+
         failure_rate = (
 
             failed_payments
-            / total_payments
-            * 100
+            /
+            total_payments
+            *
+            100
 
             if total_payments > 0
-
             else 0.0
         )
+
 
         return {
 
@@ -1644,6 +2881,7 @@ def payments(
                 ),
         }
 
+
     except Exception as exc:
 
         raise HTTPException(
@@ -1662,15 +2900,8 @@ def payments(
 def analyze(
     source: str = Query(
         default="csv",
-        description=(
-            "Payment source: "
-            "csv or razorpay"
-        ),
     ),
 ) -> Dict[str, Any]:
-    """
-    Run complete MerchantOps AI analysis.
-    """
 
     try:
 
@@ -1696,15 +2927,8 @@ def analyze(
 def decisions(
     source: str = Query(
         default="csv",
-        description=(
-            "Payment source: "
-            "csv or razorpay"
-        ),
     ),
 ) -> Dict[str, Any]:
-    """
-    Return final AI decisions.
-    """
 
     try:
 
@@ -1714,32 +2938,50 @@ def decisions(
             )
         )
 
+
         return {
 
             "source":
-                result["source"],
+                result[
+                    "source"
+                ],
 
             "count":
-                result["decisions"],
+                result[
+                    "decisions"
+                ],
 
             "action_counts":
-                result["action_counts"],
+                result[
+                    "action_counts"
+                ],
 
             "execution_modes":
-                result["execution_modes"],
+                result[
+                    "execution_modes"
+                ],
 
             "approval_required":
-                result["approval_required"],
+                result[
+                    "approval_required"
+                ],
 
             "allowed_actions":
-                result["allowed_actions"],
+                result[
+                    "allowed_actions"
+                ],
 
             "blocked_actions":
-                result["blocked_actions"],
+                result[
+                    "blocked_actions"
+                ],
 
             "decisions":
-                result["decision_records"],
+                result[
+                    "decision_records"
+                ],
         }
+
 
     except Exception as exc:
 
@@ -1759,33 +3001,28 @@ def decisions(
 async def razorpay_webhook(
     request: Request,
 ) -> Dict[str, Any]:
-    """
-    Receive, verify, deduplicate, audit, and process
-    Razorpay webhook events.
-
-    Idempotency uses:
-        x-razorpay-event-id
-    """
 
     try:
 
-        # ----------------------------------------------------
-        # 1. Read raw body
-        # ----------------------------------------------------
+        # ====================================================
+        # RAW BODY
+        # ====================================================
 
         payload = (
             await request.body()
         )
 
-        # ----------------------------------------------------
-        # 2. Signature
-        # ----------------------------------------------------
+
+        # ====================================================
+        # SIGNATURE
+        # ====================================================
 
         signature = (
             request.headers.get(
                 "X-Razorpay-Signature"
             )
         )
+
 
         if not signature:
 
@@ -1797,15 +3034,17 @@ async def razorpay_webhook(
                 ),
             )
 
-        # ----------------------------------------------------
-        # 3. Event ID
-        # ----------------------------------------------------
+
+        # ====================================================
+        # EVENT ID
+        # ====================================================
 
         event_id = (
             request.headers.get(
                 "x-razorpay-event-id"
             )
         )
+
 
         if not event_id:
 
@@ -1817,13 +3056,15 @@ async def razorpay_webhook(
                 ),
             )
 
-        # ----------------------------------------------------
-        # 4. Verify webhook signature
-        # ----------------------------------------------------
+
+        # ====================================================
+        # VERIFY WEBHOOK SIGNATURE
+        # ====================================================
 
         verifier = (
             RazorpayWebhookVerifier()
         )
+
 
         valid = (
             verifier.verify(
@@ -1831,6 +3072,7 @@ async def razorpay_webhook(
                 signature,
             )
         )
+
 
         if not valid:
 
@@ -1841,9 +3083,10 @@ async def razorpay_webhook(
                 ),
             )
 
-        # ----------------------------------------------------
-        # 5. Parse webhook
-        # ----------------------------------------------------
+
+        # ====================================================
+        # PARSE JSON
+        # ====================================================
 
         try:
 
@@ -1862,9 +3105,10 @@ async def razorpay_webhook(
                 ),
             ) from exc
 
-        # ----------------------------------------------------
-        # 6. Extract event data
-        # ----------------------------------------------------
+
+        # ====================================================
+        # EXTRACT EVENT DATA
+        # ====================================================
 
         event_name = str(
             event.get(
@@ -1873,24 +3117,33 @@ async def razorpay_webhook(
             )
         )
 
+
         payload_data = (
             event.get(
                 "payload",
                 {}
             )
+            or {}
         )
 
-        payment_entity = (
-            payload_data
-            .get(
+
+        payment_wrapper = (
+            payload_data.get(
                 "payment",
                 {}
             )
-            .get(
+            or {}
+        )
+
+
+        payment_entity = (
+            payment_wrapper.get(
                 "entity",
                 {}
             )
+            or {}
         )
+
 
         payment_id = (
             payment_entity.get(
@@ -1898,11 +3151,13 @@ async def razorpay_webhook(
             )
         )
 
+
         order_id = (
             payment_entity.get(
                 "order_id"
             )
         )
+
 
         payment_status = (
             payment_entity.get(
@@ -1910,15 +3165,17 @@ async def razorpay_webhook(
             )
         )
 
+
         amount = (
             payment_entity.get(
                 "amount"
             )
         )
 
-        # ----------------------------------------------------
-        # 7. Idempotency
-        # ----------------------------------------------------
+
+        # ====================================================
+        # IDEMPOTENCY
+        # ====================================================
 
         if webhook_event_store.exists(
             event_id
@@ -1938,6 +3195,9 @@ async def razorpay_webhook(
                 "payment_id":
                     payment_id,
 
+                "order_id":
+                    order_id,
+
                 "message":
                     (
                         "Webhook already "
@@ -1945,9 +3205,10 @@ async def razorpay_webhook(
                     ),
             }
 
-        # ----------------------------------------------------
-        # 8. Audit webhook receipt
-        # ----------------------------------------------------
+
+        # ====================================================
+        # AUDIT WEBHOOK
+        # ====================================================
 
         audit_event = (
             audit_logger.log_event(
@@ -1966,6 +3227,9 @@ async def razorpay_webhook(
 
                 details={
 
+                    "event":
+                        event,
+
                     "event_id":
                         event_id,
 
@@ -1977,24 +3241,20 @@ async def razorpay_webhook(
 
                     "amount":
                         (
-                            float(
+                            normalize_amount_to_rupees(
                                 amount
-                            ) / 100
-
+                            )
                             if amount is not None
-
                             else None
                         ),
-
-                    "event":
-                        event,
                 },
             )
         )
 
-        # ----------------------------------------------------
-        # 9. Classify webhook
-        # ----------------------------------------------------
+
+        # ====================================================
+        # CLASSIFY WEBHOOK
+        # ====================================================
 
         if event_name == (
             "payment.failed"
@@ -2002,6 +3262,10 @@ async def razorpay_webhook(
 
             processing_status = (
                 "PAYMENT_FAILED_RECORDED"
+            )
+
+            merchant_order_status = (
+                "FAILED"
             )
 
         elif event_name == (
@@ -2012,6 +3276,10 @@ async def razorpay_webhook(
                 "PAYMENT_CAPTURED_RECORDED"
             )
 
+            merchant_order_status = (
+                "CAPTURED"
+            )
+
         elif event_name == (
             "payment.authorized"
         ):
@@ -2020,17 +3288,27 @@ async def razorpay_webhook(
                 "PAYMENT_AUTHORIZED_RECORDED"
             )
 
+            merchant_order_status = (
+                "AUTHORIZED"
+            )
+
         else:
 
             processing_status = (
                 "EVENT_RECORDED"
             )
 
-        # ----------------------------------------------------
-        # 10. MerchantOps
-        # ----------------------------------------------------
+            merchant_order_status = (
+                None
+            )
+
+
+        # ====================================================
+        # MERCHANTOPS WEBHOOK PROCESSOR
+        # ====================================================
 
         merchantops_result = None
+
 
         if payment_id:
 
@@ -2045,9 +3323,10 @@ async def razorpay_webhook(
                 )
             )
 
-        # ----------------------------------------------------
-        # 11. Record webhook
-        # ----------------------------------------------------
+
+        # ====================================================
+        # RECORD EVENT ID
+        # ====================================================
 
         webhook_event_store.record(
 
@@ -2061,9 +3340,55 @@ async def razorpay_webhook(
                 payment_id,
         )
 
-        # ----------------------------------------------------
-        # 12. Return
-        # ----------------------------------------------------
+
+        # ====================================================
+        # PRODUCTION DATABASE UPDATE
+        # ====================================================
+
+        database_url = (
+            get_database_url()
+        )
+
+
+        merchant_order = None
+
+
+        if (
+            database_url
+            and
+            order_id
+            and
+            merchant_order_status
+        ):
+
+            database = (
+                PostgresDatabase(
+                    database_url
+                )
+            )
+
+            database.initialize()
+
+
+            merchant_order = (
+                database
+                .update_merchant_order(
+
+                    order_id=
+                        order_id,
+
+                    status=
+                        merchant_order_status,
+
+                    payment_id=
+                        payment_id,
+                )
+            )
+
+
+        # ====================================================
+        # RESPONSE
+        # ====================================================
 
         return {
 
@@ -2088,10 +3413,14 @@ async def razorpay_webhook(
             "processing_status":
                 processing_status,
 
+            "merchant_order_status":
+                merchant_order_status,
+
             "merchantops_processed":
                 bool(
                     merchantops_result
-                    and merchantops_result.get(
+                    and
+                    merchantops_result.get(
                         "processed",
                         False,
                     )
@@ -2100,15 +3429,20 @@ async def razorpay_webhook(
             "merchantops":
                 merchantops_result,
 
+            "merchant_order":
+                merchant_order,
+
             "audit_recorded":
                 bool(
                     audit_event
                 ),
         }
 
+
     except HTTPException:
 
         raise
+
 
     except Exception as exc:
 
@@ -2116,3 +3450,31 @@ async def razorpay_webhook(
             status_code=500,
             detail=str(exc),
         ) from exc
+
+
+# ============================================================
+# STARTUP
+# ============================================================
+
+@app.on_event(
+    "startup"
+)
+def startup() -> None:
+
+    database_url = (
+        get_database_url()
+    )
+
+    if not database_url:
+
+        return
+
+
+    database = (
+        PostgresDatabase(
+            database_url
+        )
+    )
+
+
+    database.initialize()
