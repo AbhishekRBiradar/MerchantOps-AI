@@ -44,316 +44,187 @@
         }
 
         .container {
-            width: min(
-                100%,
-                620px
-            );
+            width: min(100%, 620px);
             padding: 30px;
             border-radius: 22px;
             background:
-                rgba(
-                    15,
-                    23,
-                    42,
-                    0.97
-                );
+                rgba(15, 23, 42, 0.97);
             border:
                 1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.10
-                );
+                rgba(255, 255, 255, 0.10);
             box-shadow:
                 0 24px 70px
-                rgba(
-                    0,
-                    0,
-                    0,
-                    0.35
-                );
+                rgba(0, 0, 0, 0.35);
         }
 
         h1 {
-            margin:
-                0 0 8px;
-            font-size:
-                30px;
+            margin: 0 0 8px;
+            font-size: 30px;
         }
 
         .subtitle {
-            color:
-                #cbd5e1;
-            line-height:
-                1.5;
-            margin-bottom:
-                22px;
+            color: #cbd5e1;
+            line-height: 1.5;
+            margin-bottom: 22px;
         }
 
         .section {
-            margin-top:
-                18px;
-            padding:
-                18px;
-            border-radius:
-                14px;
+            margin-top: 18px;
+            padding: 18px;
+            border-radius: 14px;
             background:
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.025
-                );
+                rgba(255, 255, 255, 0.025);
             border:
                 1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.08
-                );
+                rgba(255, 255, 255, 0.08);
         }
 
         .section-title {
-            margin-bottom:
-                14px;
-            font-weight:
-                700;
-            font-size:
-                16px;
+            margin-bottom: 14px;
+            font-weight: 700;
+            font-size: 16px;
         }
 
         .row {
-            display:
-                flex;
-            justify-content:
-                space-between;
-            gap:
-                20px;
-            padding:
-                8px 0;
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 8px 0;
             border-bottom:
                 1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.06
-                );
+                rgba(255, 255, 255, 0.06);
         }
 
         .row:last-child {
-            border-bottom:
-                0;
+            border-bottom: 0;
         }
 
         .label {
-            color:
-                #94a3b8;
+            color: #94a3b8;
         }
 
         .value {
-            text-align:
-                right;
-            font-weight:
-                600;
-            word-break:
-                break-word;
+            text-align: right;
+            font-weight: 600;
+            word-break: break-word;
         }
 
         .amount {
-            font-size:
-                34px;
-            font-weight:
-                800;
-            color:
-                #bfdbfe;
+            font-size: 34px;
+            font-weight: 800;
+            color: #bfdbfe;
         }
 
         .breakdown {
-            margin-top:
-                10px;
+            margin-top: 10px;
         }
 
         .total {
-            margin-top:
-                14px;
-            padding-top:
-                14px;
+            margin-top: 14px;
+            padding-top: 14px;
             border-top:
                 1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.12
-                );
+                rgba(255, 255, 255, 0.12);
         }
 
         .locked {
-            margin-top:
-                14px;
-            padding:
-                11px 13px;
-            border-radius:
-                10px;
+            margin-top: 14px;
+            padding: 11px 13px;
+            border-radius: 10px;
             background:
-                rgba(
-                    59,
-                    130,
-                    246,
-                    0.10
-                );
-            color:
-                #bfdbfe;
-            font-size:
-                13px;
-            line-height:
-                1.45;
+                rgba(59, 130, 246, 0.10);
+            color: #bfdbfe;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .environment {
+            margin-top: 12px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #94a3b8;
+            background:
+                rgba(255, 255, 255, 0.03);
         }
 
         button {
             width: 100%;
-            margin-top:
-                20px;
-            padding:
-                15px 18px;
-            border:
-                0;
-            border-radius:
-                11px;
-            background:
-                #2563eb;
-            color:
-                white;
-            font-size:
-                16px;
-            font-weight:
-                700;
-            cursor:
-                pointer;
+            margin-top: 20px;
+            padding: 15px 18px;
+            border: 0;
+            border-radius: 11px;
+            background: #2563eb;
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
         }
 
         button:hover {
-            opacity:
-                0.92;
+            opacity: 0.92;
         }
 
         button:disabled {
-            opacity:
-                0.55;
-            cursor:
-                not-allowed;
+            opacity: 0.55;
+            cursor: not-allowed;
         }
 
         .status {
-            display:
-                none;
-            margin-top:
-                18px;
-            padding:
-                15px;
-            border-radius:
-                12px;
-            line-height:
-                1.6;
-            white-space:
-                pre-wrap;
+            display: none;
+            margin-top: 18px;
+            padding: 15px;
+            border-radius: 12px;
+            line-height: 1.6;
+            white-space: pre-wrap;
         }
 
         .loading {
-            display:
-                block;
+            display: block;
             background:
-                rgba(
-                    59,
-                    130,
-                    246,
-                    0.12
-                );
+                rgba(59, 130, 246, 0.12);
             border:
                 1px solid
-                rgba(
-                    96,
-                    165,
-                    250,
-                    0.30
-                );
+                rgba(96, 165, 250, 0.30);
         }
 
         .success {
-            display:
-                block;
+            display: block;
             background:
-                rgba(
-                    34,
-                    197,
-                    94,
-                    0.12
-                );
+                rgba(34, 197, 94, 0.12);
             border:
                 1px solid
-                rgba(
-                    74,
-                    222,
-                    128,
-                    0.30
-                );
+                rgba(74, 222, 128, 0.30);
         }
 
         .error {
-            display:
-                block;
+            display: block;
             background:
-                rgba(
-                    239,
-                    68,
-                    68,
-                    0.12
-                );
+                rgba(239, 68, 68, 0.12);
             border:
                 1px solid
-                rgba(
-                    248,
-                    113,
-                    113,
-                    0.30
-                );
+                rgba(248, 113, 113, 0.30);
         }
 
         .pending {
-            display:
-                block;
+            display: block;
             background:
-                rgba(
-                    234,
-                    179,
-                    8,
-                    0.10
-                );
+                rgba(234, 179, 8, 0.10);
             border:
                 1px solid
-                rgba(
-                    250,
-                    204,
-                    21,
-                    0.25
-                );
+                rgba(250, 204, 21, 0.25);
         }
 
         .small {
-            margin-top:
-                18px;
-            color:
-                #64748b;
-            font-size:
-                12px;
+            margin-top: 18px;
+            color: #64748b;
+            font-size: 12px;
         }
 
     </style>
 
 </head>
+
 
 <body>
 
@@ -617,8 +488,9 @@
 
 
         <div class="locked">
-            🔒 This amount is controlled by the merchant-created
-            server order. Customers cannot edit the price from
+            🔒 This amount is controlled by the
+            merchant-created server order.
+            Customers cannot edit the price from
             this checkout page.
         </div>
 
@@ -647,6 +519,14 @@
     ></div>
 
 
+    <div
+        id="environment"
+        class="environment"
+    >
+        Detecting payment environment...
+    </div>
+
+
     <div class="small">
         Razorpay Test Mode • MerchantOps AI
     </div>
@@ -657,23 +537,19 @@
 <script>
 
     // ========================================================
-    // CONFIG
+    // CONSTANTS
     // ========================================================
+
+    const LOCAL_API_URL =
+        "http://127.0.0.1:8000";
+
+
+    const PRODUCTION_API_URL =
+        "https://merchantops-ai-api.onrender.com";
+
 
     const RAZORPAY_KEY_ID =
         "rzp_test_TV7feaaiM2EsjP";
-
-
-    const API_URL =
-        (
-            window.location.hostname === "127.0.0.1"
-            ||
-            window.location.hostname === "localhost"
-        )
-        ?
-        "http://127.0.0.1:8000"
-        :
-        "https://merchantops-ai-api.onrender.com";
 
 
     // ========================================================
@@ -692,10 +568,179 @@
             "payButton"
         );
 
+
     const statusBox =
         document.getElementById(
             "status"
         );
+
+
+    const environmentBox =
+        document.getElementById(
+            "environment"
+        );
+
+
+    // ========================================================
+    // QUERY PARAMETERS
+    // ========================================================
+
+    function getQueryParams() {
+
+        return new URLSearchParams(
+            window.location.search
+        );
+
+    }
+
+
+    // ========================================================
+    // ORDER ID
+    // ========================================================
+
+    function getOrderId() {
+
+        const params =
+            getQueryParams();
+
+
+        return (
+            params.get(
+                "order_id"
+            )
+            ||
+            ""
+        ).trim();
+
+    }
+
+
+    // ========================================================
+    // API MODE
+    // ========================================================
+
+    function getApiMode() {
+
+        const params =
+            getQueryParams();
+
+
+        const requestedMode =
+            (
+                params.get(
+                    "api"
+                )
+                ||
+                ""
+            )
+            .trim()
+            .toLowerCase();
+
+
+        /*
+         * Explicit mode always wins.
+         *
+         * ?api=production
+         *      -> Render
+         *
+         * ?api=local
+         *      -> localhost
+         */
+
+
+        if (
+            requestedMode ===
+            "production"
+        ) {
+
+            return "production";
+
+        }
+
+
+        if (
+            requestedMode ===
+            "local"
+        ) {
+
+            return "local";
+
+        }
+
+
+        /*
+         * Automatic fallback.
+         *
+         * A deployed checkout page uses production.
+         *
+         * A local checkout page uses local.
+         */
+
+        if (
+            window.location.hostname ===
+                "127.0.0.1"
+            ||
+            window.location.hostname ===
+                "localhost"
+        ) {
+
+            return "local";
+
+        }
+
+
+        return "production";
+
+    }
+
+
+    // ========================================================
+    // API URL
+    // ========================================================
+
+    function getApiUrl() {
+
+        const mode =
+            getApiMode();
+
+
+        return (
+            mode === "production"
+            ?
+            PRODUCTION_API_URL
+            :
+            LOCAL_API_URL
+        );
+
+    }
+
+
+    // ========================================================
+    // ENVIRONMENT LABEL
+    // ========================================================
+
+    function renderEnvironment() {
+
+        const mode =
+            getApiMode();
+
+
+        if (
+            mode === "production"
+        ) {
+
+            environmentBox.textContent =
+                "🌐 Production API • Render + PostgreSQL";
+
+        }
+        else {
+
+            environmentBox.textContent =
+                "💻 Local API • 127.0.0.1 + Local Persistence";
+
+        }
+
+    }
 
 
     // ========================================================
@@ -717,29 +762,7 @@
 
 
     // ========================================================
-    // URL ORDER ID
-    // ========================================================
-
-    function getOrderId() {
-
-        const params =
-            new URLSearchParams(
-                window.location.search
-            );
-
-        return (
-            params.get(
-                "order_id"
-            )
-            ||
-            ""
-        ).trim();
-
-    }
-
-
-    // ========================================================
-    // FORMAT CURRENCY
+    // FORMAT INR
     // ========================================================
 
     function formatINR(
@@ -751,14 +774,18 @@
                 value || 0
             );
 
+
         return (
             "₹"
             +
             amount.toLocaleString(
                 "en-IN",
                 {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
+                    minimumFractionDigits:
+                        2,
+
+                    maximumFractionDigits:
+                        2
                 }
             )
         );
@@ -767,7 +794,7 @@
 
 
     // ========================================================
-    // LOAD ORDER
+    // LOAD MERCHANT ORDER
     // ========================================================
 
     async function loadOrder() {
@@ -785,6 +812,13 @@
         }
 
 
+        const apiUrl =
+            getApiUrl();
+
+
+        renderEnvironment();
+
+
         setStatus(
             "Loading merchant order...",
             "loading"
@@ -793,7 +827,7 @@
 
         const response =
             await fetch(
-                `${API_URL}/merchant/orders/${encodeURIComponent(orderId)}`,
+                `${apiUrl}/merchant/orders/${encodeURIComponent(orderId)}`,
                 {
                     method:
                         "GET",
@@ -820,7 +854,7 @@
         ) {
 
             throw new Error(
-                "The merchant order service returned an invalid response."
+                "Merchant order service returned an invalid response."
             );
 
         }
@@ -831,7 +865,7 @@
             throw new Error(
                 data.detail
                 ||
-                "Unable to load the merchant order."
+                `Unable to load merchant order. HTTP ${response.status}`
             );
 
         }
@@ -840,7 +874,7 @@
         if (!data.order) {
 
             throw new Error(
-                "Merchant order not found."
+                "Merchant order was not found."
             );
 
         }
@@ -864,9 +898,11 @@
 
 
         if (
-            status === "VERIFIED"
+            status ===
+                "VERIFIED"
             ||
-            status === "CAPTURED"
+            status ===
+                "CAPTURED"
         ) {
 
             setStatus(
@@ -874,11 +910,14 @@
                 "success"
             );
 
+
             payButton.disabled =
                 true;
 
+
             payButton.textContent =
                 "Payment Already Completed";
+
 
             return;
 
@@ -886,7 +925,8 @@
 
 
         if (
-            status === "FAILED"
+            status ===
+            "FAILED"
         ) {
 
             setStatus(
@@ -894,11 +934,14 @@
                 "error"
             );
 
+
             payButton.disabled =
                 true;
 
+
             payButton.textContent =
                 "Payment Unavailable";
+
 
             return;
 
@@ -1051,9 +1094,13 @@
         paymentResponse
     ) {
 
+        const apiUrl =
+            getApiUrl();
+
+
         const response =
             await fetch(
-                `${API_URL}/razorpay/verify-payment`,
+                `${apiUrl}/razorpay/verify-payment`,
                 {
 
                     method:
@@ -1070,13 +1117,16 @@
                         JSON.stringify({
 
                             razorpay_order_id:
-                                paymentResponse.razorpay_order_id,
+                                paymentResponse
+                                .razorpay_order_id,
 
                             razorpay_payment_id:
-                                paymentResponse.razorpay_payment_id,
+                                paymentResponse
+                                .razorpay_payment_id,
 
                             razorpay_signature:
-                                paymentResponse.razorpay_signature
+                                paymentResponse
+                                .razorpay_signature
 
                         })
 
@@ -1109,7 +1159,7 @@
             throw new Error(
                 data.detail
                 ||
-                "Payment verification failed."
+                `Payment verification failed. HTTP ${response.status}`
             );
 
         }
@@ -1139,7 +1189,6 @@
 
 
         return (
-
             error.description
             ||
             error.reason
@@ -1147,14 +1196,13 @@
             error.code
             ||
             "Payment failed."
-
         );
 
     }
 
 
     // ========================================================
-    // START RAZORPAY PAYMENT
+    // START PAYMENT
     // ========================================================
 
     function startPayment() {
@@ -1210,12 +1258,13 @@
 
 
         /*
-         * CRITICAL:
+         * IMPORTANT:
          *
-         * This page does not create a new order.
+         * The checkout page NEVER creates another Razorpay order.
          *
          * It uses the exact order created by the merchant.
          */
+
 
         const options = {
 
@@ -1303,7 +1352,8 @@
                         +
                         "Payment ID: "
                         +
-                        razorpayResponse.razorpay_payment_id
+                        razorpayResponse
+                        .razorpay_payment_id
                         +
                         "\n\n"
                         +
@@ -1350,7 +1400,8 @@
                             "Customer: "
                             +
                             (
-                                merchantOrder.customer_name
+                                merchantOrder
+                                .customer_name
                                 ||
                                 "-"
                             )
@@ -1359,9 +1410,11 @@
                             "\nProduct: "
                             +
                             (
-                                merchantOrder.product_name
+                                merchantOrder
+                                .product_name
                                 ||
-                                merchantOrder.description
+                                merchantOrder
+                                .description
                                 ||
                                 "-"
                             )
@@ -1381,7 +1434,8 @@
                             (
                                 payment.payment_id
                                 ||
-                                razorpayResponse.razorpay_payment_id
+                                razorpayResponse
+                                .razorpay_payment_id
                             )
 
                             +
@@ -1458,7 +1512,8 @@
                             +
                             "Payment ID: "
                             +
-                            razorpayResponse.razorpay_payment_id
+                            razorpayResponse
+                            .razorpay_payment_id
                             +
                             "\n\n"
                             +
@@ -1523,7 +1578,8 @@
                     "Customer: "
                     +
                     (
-                        merchantOrder.customer_name
+                        merchantOrder
+                        .customer_name
                         ||
                         "-"
                     )
@@ -1571,6 +1627,9 @@
         "DOMContentLoaded",
         async function () {
 
+            renderEnvironment();
+
+
             try {
 
                 await loadOrder();
@@ -1615,4 +1674,5 @@
 </script>
 
 </body>
+
 </html>
