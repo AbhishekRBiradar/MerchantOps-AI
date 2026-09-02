@@ -1,6 +1,7 @@
 from __future__ import annotations
 from backend.api.catalog import router as catalog_router
 from backend.api.buyer import router as buyer_router
+from backend.api.cart import router as cart_router
 import hashlib
 import json
 import os
@@ -54,6 +55,9 @@ app.include_router(
     buyer_router
 )
 
+app.include_router(
+    cart_router
+)
 
 # ============================================================
 # CONFIGURATION
