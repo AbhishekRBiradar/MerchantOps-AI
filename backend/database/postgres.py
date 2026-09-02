@@ -1092,7 +1092,7 @@ class PostgresDatabase:
                         %s,
                         %s,
                         %s,
-                        %s::jsonb,
+                        %s,
                         %s::jsonb,
                         %s::jsonb,
                         %s::jsonb,
@@ -1136,10 +1136,10 @@ class PostgresDatabase:
                         currency,
                         stock,
                         description,
-                        json.dumps(features),
-                        json.dumps(tags),
-                        json.dumps(variants),
-                        json.dumps(related_products),
+                        Jsonb(features),
+                        Jsonb(tags),
+                        Jsonb(variants),
+                        Jsonb(related_products),
                     ),
                 )
 
