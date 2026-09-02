@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from backend.api.catalog import router as catalog_router
 import hashlib
 import json
 import os
@@ -42,6 +42,10 @@ app = FastAPI(
         "merchant order management, and governance."
     ),
     version="2.8.0",
+)
+
+app.include_router(
+    catalog_router
 )
 
 

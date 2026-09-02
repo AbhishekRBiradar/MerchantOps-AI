@@ -173,6 +173,71 @@ class PostgresDatabase:
                     """
                 )
 
+                                # ====================================================
+                # PRODUCT CATALOG
+                # ====================================================
+
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS catalog_products (
+                        id BIGSERIAL PRIMARY KEY,
+
+                        product_id TEXT UNIQUE NOT NULL,
+
+                        name TEXT NOT NULL,
+
+                        category TEXT NOT NULL,
+
+                        price NUMERIC(12, 2)
+                            NOT NULL
+                            DEFAULT 0,
+
+                        currency TEXT NOT NULL
+                            DEFAULT 'INR',
+
+                        stock INTEGER
+                            NOT NULL
+                            DEFAULT 0,
+
+                        description TEXT,
+
+                        features JSONB NOT NULL
+                            DEFAULT '[]'::jsonb,
+
+                        tags JSONB NOT NULL
+                            DEFAULT '[]'::jsonb,
+
+                        variants JSONB NOT NULL
+                            DEFAULT '[]'::jsonb,
+
+                        related_products JSONB NOT NULL
+                            DEFAULT '[]'::jsonb,
+
+                        created_at TIMESTAMPTZ NOT NULL
+                            DEFAULT NOW(),
+
+                        updated_at TIMESTAMPTZ NOT NULL
+                            DEFAULT NOW()
+                    );
+                    """
+                )
+
+                cursor.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS
+                    idx_catalog_products_category
+                    ON catalog_products(category);
+                    """
+                )
+
+                cursor.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS
+                    idx_catalog_products_name
+                    ON catalog_products(name);
+                    """
+                )
+
                 # ====================================================
                 # MERCHANT ORDERS
                 # ====================================================
@@ -910,6 +975,426 @@ class PostgresDatabase:
                 result[
                     field
                 ] = timestamp.isoformat()
+
+        return result
+        # ========================================================
+    # CREATE / UPDATE CATALOG PRODUCT
+    # ========================================================
+
+    def upsert_catalog_product(
+        self,
+        product_id: str,
+        name: str,
+        category: str,
+        price: float = 0.0,
+        currency: str = "INR",
+        stock: int = 0,
+        description: Optional[str] = None,
+        features: Optional[List[Any]] = None,
+        tags: Optional[List[Any]] = None,
+        variants: Optional[List[Dict[str, Any]]] = None,
+        related_products: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+
+        product_id = str(
+            product_id
+        ).strip()
+
+        name = str(
+            name
+        ).strip()
+
+        category = str(
+            category
+        ).strip()
+
+        if not product_id:
+            raise ValueError(
+                "product_id is required."
+            )
+
+        if not name:
+            raise ValueError(
+                "name is required."
+            )
+
+        if not category:
+            raise ValueError(
+                "category is required."
+            )
+
+        price = float(
+            price
+        )
+
+        stock = int(
+            stock
+        )
+
+        if price < 0:
+            raise ValueError(
+                "price cannot be negative."
+            )
+
+        if stock < 0:
+            raise ValueError(
+                "stock cannot be negative."
+            )
+
+        features = (
+            features
+            if features is not None
+            else []
+        )
+
+        tags = (
+            tags
+            if tags is not None
+            else []
+        )
+
+        variants = (
+            variants
+            if variants is not None
+            else []
+        )
+
+        related_products = (
+            related_products
+            if related_products is not None
+            else []
+        )
+
+        with self.connect() as connection:
+
+            with connection.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    INSERT INTO catalog_products (
+                        product_id,
+                        name,
+                        category,
+                        price,
+                        currency,
+                        stock,
+                        description,
+                        features,
+                        tags,
+                        variants,
+                        related_products
+                    )
+                    VALUES (
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s::jsonb,
+                        %s::jsonb,
+                        %s::jsonb,
+                        %s::jsonb,
+                        %s::jsonb
+                    )
+                    ON CONFLICT (product_id)
+                    DO UPDATE SET
+                        name = EXCLUDED.name,
+                        category = EXCLUDED.category,
+                        price = EXCLUDED.price,
+                        currency = EXCLUDED.currency,
+                        stock = EXCLUDED.stock,
+                        description = EXCLUDED.description,
+                        features = EXCLUDED.features,
+                        tags = EXCLUDED.tags,
+                        variants = EXCLUDED.variants,
+                        related_products =
+                            EXCLUDED.related_products,
+                        updated_at = NOW()
+                    RETURNING
+                        id,
+                        product_id,
+                        name,
+                        category,
+                        price,
+                        currency,
+                        stock,
+                        description,
+                        features,
+                        tags,
+                        variants,
+                        related_products,
+                        created_at,
+                        updated_at
+                    """,
+                    (
+                        product_id,
+                        name,
+                        category,
+                        price,
+                        currency,
+                        stock,
+                        description,
+                        json.dumps(features),
+                        json.dumps(tags),
+                        json.dumps(variants),
+                        json.dumps(related_products),
+                    ),
+                )
+
+                row = cursor.fetchone()
+
+            connection.commit()
+
+        return (
+            self._normalize_catalog_product(
+                row
+            )
+            or {}
+        )
+
+    # ========================================================
+    # GET CATALOG PRODUCT
+    # ========================================================
+
+    def get_catalog_product(
+        self,
+        product_id: str,
+    ) -> Optional[Dict[str, Any]]:
+
+        with self.connect() as connection:
+
+            with connection.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    SELECT
+                        id,
+                        product_id,
+                        name,
+                        category,
+                        price,
+                        currency,
+                        stock,
+                        description,
+                        features,
+                        tags,
+                        variants,
+                        related_products,
+                        created_at,
+                        updated_at
+                    FROM catalog_products
+                    WHERE product_id = %s
+                    LIMIT 1
+                    """,
+                    (
+                        product_id,
+                    ),
+                )
+
+                row = cursor.fetchone()
+
+        return (
+            self._normalize_catalog_product(
+                row
+            )
+        )
+
+    # ========================================================
+    # LIST CATALOG PRODUCTS
+    # ========================================================
+
+    def list_catalog_products(
+        self,
+    ) -> List[Dict[str, Any]]:
+
+        with self.connect() as connection:
+
+            with connection.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    SELECT
+                        id,
+                        product_id,
+                        name,
+                        category,
+                        price,
+                        currency,
+                        stock,
+                        description,
+                        features,
+                        tags,
+                        variants,
+                        related_products,
+                        created_at,
+                        updated_at
+                    FROM catalog_products
+                    ORDER BY created_at DESC
+                    """
+                )
+
+                rows = cursor.fetchall()
+
+        return [
+            self._normalize_catalog_product(
+                row
+            )
+            for row in rows
+        ]
+
+    # ========================================================
+    # SEARCH CATALOG
+    # ========================================================
+
+    def search_catalog_products(
+        self,
+        query: str,
+    ) -> List[Dict[str, Any]]:
+
+        query = (
+            str(query or "")
+            .strip()
+        )
+
+        if not query:
+            return self.list_catalog_products()
+
+        pattern = f"%{query}%"
+
+        with self.connect() as connection:
+
+            with connection.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    SELECT
+                        id,
+                        product_id,
+                        name,
+                        category,
+                        price,
+                        currency,
+                        stock,
+                        description,
+                        features,
+                        tags,
+                        variants,
+                        related_products,
+                        created_at,
+                        updated_at
+                    FROM catalog_products
+                    WHERE
+                        product_id ILIKE %s
+                        OR name ILIKE %s
+                        OR category ILIKE %s
+                        OR description ILIKE %s
+                    ORDER BY created_at DESC
+                    """,
+                    (
+                        pattern,
+                        pattern,
+                        pattern,
+                        pattern,
+                    ),
+                )
+
+                rows = cursor.fetchall()
+
+        return [
+            self._normalize_catalog_product(
+                row
+            )
+            for row in rows
+        ]
+
+    # ========================================================
+    # CATEGORY PRODUCTS
+    # ========================================================
+
+    def list_catalog_category(
+        self,
+        category: str,
+    ) -> List[Dict[str, Any]]:
+
+        with self.connect() as connection:
+
+            with connection.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    SELECT
+                        id,
+                        product_id,
+                        name,
+                        category,
+                        price,
+                        currency,
+                        stock,
+                        description,
+                        features,
+                        tags,
+                        variants,
+                        related_products,
+                        created_at,
+                        updated_at
+                    FROM catalog_products
+                    WHERE LOWER(category) = LOWER(%s)
+                    ORDER BY created_at DESC
+                    """,
+                    (
+                        category,
+                    ),
+                )
+
+                rows = cursor.fetchall()
+
+        return [
+            self._normalize_catalog_product(
+                row
+            )
+            for row in rows
+        ]
+
+    # ========================================================
+    # CATALOG PRODUCT NORMALIZER
+    # ========================================================
+
+    def _normalize_catalog_product(
+        self,
+        row: Any,
+    ) -> Optional[Dict[str, Any]]:
+
+        if not row:
+            return None
+
+        result = dict(
+            row
+        )
+
+        for field in [
+            "features",
+            "tags",
+            "variants",
+            "related_products",
+        ]:
+
+            if result.get(field) is None:
+                result[field] = []
+
+        for field in [
+            "created_at",
+            "updated_at",
+        ]:
+
+            timestamp = result.get(
+                field
+            )
+
+            if timestamp is not None:
+                result[field] = (
+                    timestamp.isoformat()
+                )
 
         return result
 

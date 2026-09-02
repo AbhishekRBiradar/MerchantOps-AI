@@ -32,48 +32,1223 @@ st.set_page_config(
 )
 
 # ============================================================
+# THEME STATE
+# ============================================================
+
+if "theme_mode" not in st.session_state:
+    st.session_state["theme_mode"] = "dark"
+
+theme_mode = st.session_state["theme_mode"]
+
+
+# ============================================================
 # STYLING
 # ============================================================
 
-st.markdown(
+# Theme-specific CSS is generated first and the final theme
+# overrides are placed AFTER the shared styling so they win
+# over any generic dark-mode declarations.
+
+if theme_mode == "dark":
+
+    theme_css = """
+    :root {
+        --mo-bg: #080c16;
+        --mo-bg-2: #0d1322;
+        --mo-surface: rgba(255,255,255,0.055);
+        --mo-surface-strong: rgba(255,255,255,0.085);
+        --mo-border: rgba(255,255,255,0.11);
+        --mo-border-hover: rgba(255,255,255,0.22);
+        --mo-text: #f8fafc;
+        --mo-muted: #94a3b8;
+        --mo-accent: #7c83ff;
+        --mo-accent-2: #a78bfa;
+        --mo-success: #22c55e;
+        --mo-warning: #f59e0b;
+        --mo-danger: #ef4444;
+        --mo-shadow: 0 20px 60px rgba(0,0,0,0.28);
+    }
+
+    .stApp {
+        background:
+            radial-gradient(
+                circle at 5% 0%,
+                rgba(124,131,255,0.13),
+                transparent 25%
+            ),
+            radial-gradient(
+                circle at 95% 8%,
+                rgba(167,139,250,0.10),
+                transparent 23%
+            ),
+            radial-gradient(
+                circle at 50% 100%,
+                rgba(59,130,246,0.07),
+                transparent 30%
+            ),
+            var(--mo-bg) !important;
+
+        color: var(--mo-text) !important;
+    }
+
+    section[data-testid="stSidebar"] {
+        background:
+            linear-gradient(
+                180deg,
+                rgba(15,23,42,0.90),
+                rgba(2,6,23,0.96)
+            ) !important;
+    }
+
+    section[data-testid="stSidebar"] pre,
+    section[data-testid="stSidebar"] code {
+        color: #e2e8f0 !important;
+    }
+
+    section[data-testid="stSidebar"] pre {
+        background:
+            rgba(255,255,255,0.055) !important;
+        border:
+            1px solid rgba(255,255,255,0.10) !important;
+        border-radius:
+            12px !important;
+    }
+
+    div[data-testid="stStatusWidget"] {
+        background:
+            rgba(15,23,42,0.92) !important;
+        color:
+            #f8fafc !important;
+        border-radius:
+            12px !important;
+    }
     """
+
+else:
+
+    theme_css = """
+    :root {
+        --mo-bg: #eef2f8;
+        --mo-bg-2: #f8fafc;
+        --mo-surface: rgba(255,255,255,0.68);
+        --mo-surface-strong: rgba(255,255,255,0.86);
+        --mo-border: rgba(15,23,42,0.10);
+        --mo-border-hover: rgba(79,70,229,0.25);
+        --mo-text: #0f172a;
+        --mo-muted: #64748b;
+        --mo-accent: #4f46e5;
+        --mo-accent-2: #7c3aed;
+        --mo-success: #16a34a;
+        --mo-warning: #d97706;
+        --mo-danger: #dc2626;
+        --mo-shadow: 0 18px 50px rgba(15,23,42,0.10);
+    }
+
+    .stApp {
+        background:
+            radial-gradient(
+                circle at 5% 0%,
+                rgba(99,102,241,0.12),
+                transparent 25%
+            ),
+            radial-gradient(
+                circle at 95% 8%,
+                rgba(124,58,237,0.09),
+                transparent 24%
+            ),
+            linear-gradient(
+                180deg,
+                #f8fafc 0%,
+                #eef2f8 100%
+            ) !important;
+
+        color:
+            var(--mo-text) !important;
+    }
+
+    .stApp p,
+    .stApp span,
+    .stApp label,
+    .stApp h1,
+    .stApp h2,
+    .stApp h3,
+    .stApp h4,
+    .stApp h5,
+    .stApp h6 {
+        color:
+            var(--mo-text);
+    }
+
+    .stApp small,
+    .stApp [data-testid="stCaptionContainer"],
+    .stApp .stCaption {
+        color:
+            var(--mo-muted) !important;
+    }
+
+    /* ---------- Sidebar ---------- */
+
+    section[data-testid="stSidebar"] {
+        background:
+            linear-gradient(
+                180deg,
+                rgba(255,255,255,0.94),
+                rgba(241,245,249,0.96)
+            ) !important;
+
+        border-right:
+            1px solid rgba(15,23,42,0.09) !important;
+
+        box-shadow:
+            8px 0 30px rgba(15,23,42,0.06) !important;
+    }
+
+    section[data-testid="stSidebar"] * {
+        color:
+            #0f172a;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        color:
+            #64748b !important;
+    }
+
+    /* ---------- Sidebar code boxes ---------- */
+
+    section[data-testid="stSidebar"] pre {
+        background:
+            #ffffff !important;
+
+        color:
+            #0f172a !important;
+
+        border:
+            1px solid rgba(15,23,42,0.10) !important;
+
+        border-radius:
+            12px !important;
+
+        box-shadow:
+            0 8px 24px rgba(15,23,42,0.06) !important;
+    }
+
+    section[data-testid="stSidebar"] pre code,
+    section[data-testid="stSidebar"] code {
+        background:
+            transparent !important;
+
+        color:
+            #0f172a !important;
+
+        text-shadow:
+            none !important;
+    }
+
+    /* ---------- Main metrics ---------- */
+
+    div[data-testid="stMetric"] {
+        background:
+            linear-gradient(
+                145deg,
+                rgba(255,255,255,0.90),
+                rgba(255,255,255,0.68)
+            ) !important;
+
+        border:
+            1px solid rgba(15,23,42,0.09) !important;
+
+        box-shadow:
+            0 12px 35px rgba(15,23,42,0.08) !important;
+    }
+
+    div[data-testid="stMetricLabel"] {
+        color:
+            #64748b !important;
+    }
+
+    div[data-testid="stMetricValue"] {
+        color:
+            #0f172a !important;
+    }
+
+    /* ---------- Buttons ---------- */
+
+    .stButton > button,
+    .stLinkButton > a,
+    .stDownloadButton > button {
+        background:
+            rgba(255,255,255,0.78) !important;
+
+        color:
+            #0f172a !important;
+
+        border:
+            1px solid rgba(15,23,42,0.10) !important;
+
+        box-shadow:
+            0 8px 22px rgba(15,23,42,0.07) !important;
+    }
+
+    .stButton > button:hover,
+    .stLinkButton > a:hover,
+    .stDownloadButton > button:hover {
+        background:
+            rgba(255,255,255,0.96) !important;
+
+        border-color:
+            rgba(79,70,229,0.30) !important;
+    }
+
+    /* ---------- Inputs ---------- */
+
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="select"] > div,
+    textarea {
+        background:
+            rgba(255,255,255,0.86) !important;
+
+        color:
+            #0f172a !important;
+
+        border-color:
+            rgba(15,23,42,0.10) !important;
+    }
+
+    /* ---------- Alerts ---------- */
+
+    div[data-testid="stAlert"] {
+        box-shadow:
+            0 10px 28px rgba(15,23,42,0.06) !important;
+    }
+
+    /* ---------- Tables ---------- */
+
+    div[data-testid="stDataFrame"] {
+        background:
+            rgba(255,255,255,0.75) !important;
+
+        border:
+            1px solid rgba(15,23,42,0.09) !important;
+
+        box-shadow:
+            0 14px 35px rgba(15,23,42,0.07) !important;
+    }
+
+    /* ---------- Expanders ---------- */
+
+    details {
+        background:
+            rgba(255,255,255,0.68) !important;
+
+        border:
+            1px solid rgba(15,23,42,0.09) !important;
+    }
+
+    details summary {
+        color:
+            #0f172a !important;
+    }
+
+    /* ---------- Status / Running widget ---------- */
+
+    div[data-testid="stStatusWidget"] {
+        background:
+            rgba(255,255,255,0.94) !important;
+
+        color:
+            #0f172a !important;
+
+        border:
+            1px solid rgba(15,23,42,0.10) !important;
+
+        border-radius:
+            12px !important;
+
+        box-shadow:
+            0 12px 35px rgba(15,23,42,0.12) !important;
+    }
+
+    div[data-testid="stStatusWidget"] *,
+    div[data-testid="stStatusWidget"] code {
+        color:
+            #0f172a !important;
+
+        background:
+            transparent !important;
+    }
+
+    /* ---------- Sidebar radio / toggle ---------- */
+
+    section[data-testid="stSidebar"] [role="radiogroup"] label,
+    section[data-testid="stSidebar"] [data-testid="stToggle"] label {
+        color:
+            #0f172a !important;
+    }
+    """
+
+
+st.markdown(
+    f"""
     <style>
-    .main-title {
-        font-size: 42px;
-        font-weight: 800;
+
+    html {{
+        scroll-behavior: smooth;
+    }}
+
+    body {{
+        overflow-x: hidden;
+    }}
+
+    .block-container {{
+        width: 100% !important;
+        max-width: none !important;
+        padding-top: 1.5rem !important;
+        padding-left: clamp(1rem, 2vw, 2.5rem) !important;
+        padding-right: clamp(1rem, 2vw, 2.5rem) !important;
+        padding-bottom: 5rem !important;
+    }}
+
+    .stApp {{
+        color: var(--mo-text);
+    }}
+
+    .main-title {{
+        font-size: clamp(32px, 4vw, 48px);
+        font-weight: 850;
+        letter-spacing: -2px;
         margin-bottom: 4px;
-    }
+        animation: moFadeDown 0.55s ease-out;
+    }}
 
-    .subtitle {
-        font-size: 17px;
-        opacity: 0.72;
-        margin-bottom: 18px;
-    }
+    .subtitle {{
+        font-size: 15px;
+        color: var(--mo-muted);
+        margin-bottom: 22px;
+        animation: moFadeUp 0.65s ease-out;
+    }}
 
-    .section-title {
-        font-size: 28px;
-        font-weight: 750;
-        margin-top: 12px;
-        margin-bottom: 12px;
-    }
+    .section-title {{
+        font-size: clamp(23px, 2.3vw, 30px);
+        font-weight: 800;
+        letter-spacing: -0.7px;
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }}
 
-    .small-muted {
-        font-size: 12px;
-        opacity: 0.65;
-    }
+    /* =====================================================
+       GLASS METRICS
+       ===================================================== */
 
-    .locked-box {
-        padding: 12px 14px;
-        border-radius: 10px;
-        border: 1px solid rgba(90, 140, 255, 0.30);
-        background: rgba(90, 140, 255, 0.08);
-        font-size: 13px;
-        line-height: 1.45;
-    }
+    div[data-testid="stMetric"] {{
+        background:
+            linear-gradient(
+                145deg,
+                rgba(255,255,255,0.075),
+                rgba(255,255,255,0.025)
+            );
+
+        backdrop-filter:
+            blur(18px) saturate(150%);
+
+        -webkit-backdrop-filter:
+            blur(18px) saturate(150%);
+
+        border:
+            1px solid var(--mo-border);
+
+        border-radius:
+            18px;
+
+        padding:
+            16px 18px;
+
+        box-shadow:
+            var(--mo-shadow);
+
+        transition:
+            transform 0.22s ease,
+            box-shadow 0.22s ease,
+            border-color 0.22s ease;
+    }}
+
+    div[data-testid="stMetric"]:hover {{
+        transform:
+            translateY(-5px) scale(1.01);
+
+        border-color:
+            rgba(124,131,255,0.36);
+
+        box-shadow:
+            0 26px 70px rgba(0,0,0,0.20);
+    }}
+
+    div[data-testid="stMetricLabel"] {{
+        color:
+            var(--mo-muted);
+    }}
+
+    /* =====================================================
+       BUTTONS
+       ===================================================== */
+
+    .stButton > button,
+    .stLinkButton > a,
+    .stDownloadButton > button {{
+        border-radius:
+            12px !important;
+
+        border:
+            1px solid var(--mo-border) !important;
+
+        background:
+            rgba(255,255,255,0.045) !important;
+
+        backdrop-filter:
+            blur(12px);
+
+        -webkit-backdrop-filter:
+            blur(12px);
+
+        font-weight:
+            750 !important;
+
+        transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease,
+            border-color 0.18s ease;
+    }}
+
+    .stButton > button:hover,
+    .stLinkButton > a:hover,
+    .stDownloadButton > button:hover {{
+        transform:
+            translateY(-2px);
+
+        box-shadow:
+            0 12px 30px rgba(0,0,0,0.18);
+    }}
+
+    /* =====================================================
+       ALERTS
+       ===================================================== */
+
+    div[data-testid="stAlert"] {{
+        border-radius:
+            16px !important;
+
+        backdrop-filter:
+            blur(14px);
+
+        -webkit-backdrop-filter:
+            blur(14px);
+
+        animation:
+            moFadeUp 0.4s ease-out;
+    }}
+
+    /* =====================================================
+       TABS
+       ===================================================== */
+
+    button[data-baseweb="tab"] {{
+        border-radius:
+            10px 10px 0 0;
+
+        font-weight:
+            750;
+
+        transition:
+            transform 0.18s ease,
+            color 0.18s ease;
+    }}
+
+    button[data-baseweb="tab"]:hover {{
+        transform:
+            translateY(-2px);
+    }}
+
+    /* =====================================================
+       TABLES
+       ===================================================== */
+
+    div[data-testid="stDataFrame"] {{
+        border:
+            1px solid var(--mo-border);
+
+        border-radius:
+            16px;
+
+        overflow:
+            hidden;
+
+        box-shadow:
+            0 15px 45px rgba(0,0,0,0.12);
+    }}
+
+    /* =====================================================
+       EXPANDERS
+       ===================================================== */
+
+    details {{
+        border:
+            1px solid var(--mo-border) !important;
+
+        border-radius:
+            14px !important;
+
+        background:
+            rgba(255,255,255,0.025);
+
+        backdrop-filter:
+            blur(12px);
+    }}
+
+    /* =====================================================
+       SCROLL BUTTONS
+       ===================================================== */
+
+    .mo-scroll-controls {{
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        z-index: 999999;
+
+        display:
+            flex;
+
+        flex-direction:
+            column;
+
+        gap:
+            9px;
+    }}
+
+    .mo-scroll-btn {{
+        width:
+            44px;
+
+        height:
+            44px;
+
+        display:
+            flex;
+
+        align-items:
+            center;
+
+        justify-content:
+            center;
+
+        border-radius:
+            50%;
+
+        text-decoration:
+            none !important;
+
+        color:
+            var(--mo-text) !important;
+
+        background:
+            rgba(255,255,255,0.075);
+
+        border:
+            1px solid
+            rgba(255,255,255,0.16);
+
+        backdrop-filter:
+            blur(18px) saturate(150%);
+
+        -webkit-backdrop-filter:
+            blur(18px) saturate(150%);
+
+        box-shadow:
+            0 12px 35px rgba(0,0,0,0.30);
+
+        font-size:
+            20px;
+
+        font-weight:
+            800;
+
+        transition:
+            transform 0.2s ease,
+            background 0.2s ease,
+            box-shadow 0.2s ease;
+    }}
+
+    .mo-scroll-btn:hover {{
+        transform:
+            translateY(-4px);
+
+        background:
+            rgba(124,131,255,0.20);
+
+        box-shadow:
+            0 18px 42px rgba(0,0,0,0.35);
+    }}
+
+    /* =====================================================
+       ANIMATIONS
+       ===================================================== */
+
+    @keyframes moFadeUp {{
+
+        from {{
+            opacity: 0;
+            transform: translateY(12px);
+        }}
+
+        to {{
+            opacity: 1;
+            transform: translateY(0);
+        }}
+
+    }}
+
+    @keyframes moFadeDown {{
+
+        from {{
+            opacity: 0;
+            transform: translateY(-12px);
+        }}
+
+        to {{
+            opacity: 1;
+            transform: translateY(0);
+        }}
+
+    }}
+
+    @media (max-width: 900px) {{
+
+        .main-title {{
+            font-size:
+                34px;
+        }}
+
+        .subtitle {{
+            font-size:
+                14px;
+        }}
+
+        .mo-scroll-controls {{
+            right:
+                14px;
+
+            bottom:
+                14px;
+        }}
+
+        .mo-scroll-btn {{
+            width:
+                40px;
+
+            height:
+                40px;
+        }}
+
+    }}
+
+    @media (prefers-reduced-motion: reduce) {{
+
+        *,
+        *::before,
+        *::after {{
+
+            animation:
+                none !important;
+
+            transition:
+                none !important;
+
+            scroll-behavior:
+                auto !important;
+        }}
+
+    }}
+
+    /* =====================================================
+       FINAL THEME OVERRIDES
+       ===================================================== */
+
+    {theme_css}
+
     </style>
     """,
     unsafe_allow_html=True,
 )
+
+
+# ============================================================
+# FINAL THEME OVERRIDES
+# ============================================================
+
+if theme_mode == "dark":
+
+    final_theme_css = """
+    <style>
+
+    /* =====================================================
+       DARK MODE
+       ===================================================== */
+
+    .stApp {
+        background:
+            radial-gradient(
+                circle at 5% 0%,
+                rgba(124,131,255,0.13),
+                transparent 25%
+            ),
+            radial-gradient(
+                circle at 95% 8%,
+                rgba(167,139,250,0.10),
+                transparent 23%
+            ),
+            #080c16 !important;
+
+        color: #f8fafc !important;
+    }
+
+    /* Main text */
+
+    .stApp p,
+    .stApp span,
+    .stApp label,
+    .stApp h1,
+    .stApp h2,
+    .stApp h3,
+    .stApp h4,
+    .stApp h5,
+    .stApp h6 {
+        color: #f8fafc;
+    }
+
+    /* Captions */
+
+    [data-testid="stCaptionContainer"] {
+        color: #94a3b8 !important;
+    }
+
+    /* Sidebar */
+
+    section[data-testid="stSidebar"] {
+        background:
+            linear-gradient(
+                180deg,
+                rgba(15,23,42,0.96),
+                rgba(2,6,23,0.99)
+            ) !important;
+
+        border-right:
+            1px solid
+            rgba(255,255,255,0.10) !important;
+    }
+
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4,
+    section[data-testid="stSidebar"] h5,
+    section[data-testid="stSidebar"] h6 {
+        color: #f8fafc !important;
+    }
+
+    section[data-testid="stSidebar"]
+    [data-testid="stCaptionContainer"] {
+        color: #94a3b8 !important;
+    }
+
+    /* Sidebar code */
+
+    section[data-testid="stSidebar"] pre,
+    section[data-testid="stSidebar"] code {
+        color: #e2e8f0 !important;
+        background: #111827 !important;
+    }
+
+    section[data-testid="stSidebar"] pre {
+        border:
+            1px solid
+            rgba(255,255,255,0.10) !important;
+        border-radius: 12px !important;
+    }
+
+    /* Tabs */
+
+    button[data-baseweb="tab"] {
+        color: #cbd5e1 !important;
+        background: transparent !important;
+    }
+
+    button[data-baseweb="tab"]:hover {
+        color: #ffffff !important;
+    }
+
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #a5b4fc !important;
+        font-weight: 800 !important;
+    }
+
+    /* Dividers */
+
+    hr {
+        border-color:
+            rgba(255,255,255,0.12) !important;
+        opacity: 1 !important;
+    }
+
+    /* Inputs */
+
+    div[data-baseweb="input"] input,
+    textarea {
+        color: #f8fafc !important;
+        background: #111827 !important;
+        caret-color: #ffffff !important;
+    }
+
+    /* Selects */
+
+    div[data-baseweb="select"] * {
+        color: #f8fafc !important;
+    }
+
+    /* Streamlit code blocks */
+
+    div[data-testid="stCode"] {
+        background:
+            rgba(255,255,255,0.045) !important;
+
+        border:
+            1px solid
+            rgba(255,255,255,0.09) !important;
+
+        border-radius:
+            12px !important;
+    }
+
+    div[data-testid="stCode"] pre,
+    div[data-testid="stCode"] code {
+        color: #e2e8f0 !important;
+        background: transparent !important;
+    }
+
+    /* Running / status widget */
+
+    div[data-testid="stStatusWidget"] {
+        background:
+            rgba(15,23,42,0.94) !important;
+
+        color:
+            #f8fafc !important;
+
+        border:
+            1px solid
+            rgba(255,255,255,0.10) !important;
+
+        border-radius:
+            12px !important;
+    }
+
+    div[data-testid="stStatusWidget"] * {
+        color:
+            #f8fafc !important;
+    }
+
+    /* Metrics */
+
+    div[data-testid="stMetricLabel"] {
+        color:
+            #94a3b8 !important;
+    }
+
+    div[data-testid="stMetricValue"] {
+        color:
+            #f8fafc !important;
+    }
+
+    /* Tables */
+
+    div[data-testid="stDataFrame"] {
+        border-color:
+            rgba(255,255,255,0.10) !important;
+    }
+
+    </style>
+    """
+
+else:
+
+    final_theme_css = """
+    <style>
+
+    /* =====================================================
+       LIGHT MODE
+       ===================================================== */
+
+    .stApp {
+        background:
+            radial-gradient(
+                circle at 5% 0%,
+                rgba(99,102,241,0.10),
+                transparent 25%
+            ),
+            radial-gradient(
+                circle at 95% 8%,
+                rgba(124,58,237,0.08),
+                transparent 23%
+            ),
+            linear-gradient(
+                180deg,
+                #f8fafc 0%,
+                #eef2f7 100%
+            ) !important;
+
+        color:
+            #0f172a !important;
+    }
+
+    /* Main text */
+
+    .stApp p,
+    .stApp span,
+    .stApp label,
+    .stApp h1,
+    .stApp h2,
+    .stApp h3,
+    .stApp h4,
+    .stApp h5,
+    .stApp h6 {
+        color: #0f172a !important;
+    }
+
+    /* Captions */
+
+    [data-testid="stCaptionContainer"] {
+        color: #64748b !important;
+    }
+
+    /* Sidebar */
+
+    section[data-testid="stSidebar"] {
+        background:
+            linear-gradient(
+                180deg,
+                rgba(255,255,255,0.98),
+                rgba(241,245,249,0.99)
+            ) !important;
+
+        border-right:
+            1px solid
+            rgba(15,23,42,0.09) !important;
+
+        box-shadow:
+            8px 0 30px
+            rgba(15,23,42,0.05) !important;
+    }
+
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4,
+    section[data-testid="stSidebar"] h5,
+    section[data-testid="stSidebar"] h6 {
+        color: #0f172a !important;
+    }
+
+    section[data-testid="stSidebar"]
+    [data-testid="stCaptionContainer"] {
+        color: #64748b !important;
+    }
+
+    /* Sidebar code */
+
+    section[data-testid="stSidebar"] pre {
+        background:
+            #ffffff !important;
+
+        color:
+            #0f172a !important;
+
+        border:
+            1px solid
+            rgba(15,23,42,0.10) !important;
+
+        border-radius:
+            12px !important;
+
+        box-shadow:
+            0 8px 22px
+            rgba(15,23,42,0.06) !important;
+    }
+
+    section[data-testid="stSidebar"] pre code,
+    section[data-testid="stSidebar"] code {
+        background:
+            transparent !important;
+
+        color:
+            #0f172a !important;
+
+        text-shadow:
+            none !important;
+    }
+
+    /* Tabs */
+
+    button[data-baseweb="tab"] {
+        color:
+            #64748b !important;
+
+        background:
+            transparent !important;
+    }
+
+    button[data-baseweb="tab"]:hover {
+        color:
+            #334155 !important;
+    }
+
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color:
+            #4f46e5 !important;
+
+        font-weight:
+            800 !important;
+    }
+
+    /* Tab content */
+
+    [data-baseweb="tab-panel"] {
+        color:
+            #0f172a !important;
+    }
+
+    /* Dividers */
+
+    hr {
+        border-color:
+            rgba(15,23,42,0.12) !important;
+
+        opacity:
+            1 !important;
+    }
+
+    /* Inputs */
+
+    div[data-baseweb="input"] input,
+    textarea {
+        color:
+            #0f172a !important;
+
+        background:
+            #ffffff !important;
+
+        caret-color:
+            #0f172a !important;
+    }
+
+    /* Selects */
+
+    div[data-baseweb="select"] * {
+        color:
+            #0f172a !important;
+    }
+
+    /* Code blocks */
+
+    div[data-testid="stCode"] {
+        background:
+            rgba(255,255,255,0.82) !important;
+
+        border:
+            1px solid
+            rgba(15,23,42,0.10) !important;
+
+        border-radius:
+            12px !important;
+
+        box-shadow:
+            0 8px 24px
+            rgba(15,23,42,0.05) !important;
+    }
+
+    div[data-testid="stCode"] pre,
+    div[data-testid="stCode"] code {
+        color:
+            #0f172a !important;
+
+        background:
+            transparent !important;
+
+        text-shadow:
+            none !important;
+    }
+
+    /* Running / status widget */
+
+    div[data-testid="stStatusWidget"] {
+        background:
+            rgba(255,255,255,0.96) !important;
+
+        color:
+            #0f172a !important;
+
+        border:
+            1px solid
+            rgba(15,23,42,0.10) !important;
+
+        border-radius:
+            12px !important;
+
+        box-shadow:
+            0 12px 35px
+            rgba(15,23,42,0.10) !important;
+    }
+
+    div[data-testid="stStatusWidget"] * {
+        color:
+            #0f172a !important;
+    }
+
+    /* Metrics */
+
+    div[data-testid="stMetricLabel"] {
+        color:
+            #64748b !important;
+    }
+
+    div[data-testid="stMetricValue"] {
+        color:
+            #0f172a !important;
+    }
+
+    /* Tables */
+
+    div[data-testid="stDataFrame"] {
+        border:
+            1px solid
+            rgba(15,23,42,0.10) !important;
+
+        box-shadow:
+            0 12px 30px
+            rgba(15,23,42,0.06) !important;
+    }
+
+    </style>
+    """
+
+
+st.markdown(
+    final_theme_css,
+    unsafe_allow_html=True,
+)
+
 
 # ============================================================
 # API HELPERS
@@ -147,6 +1322,22 @@ if "payment_view" not in st.session_state:
 # ============================================================
 
 st.markdown(
+    '<div id="mo-bottom"></div>',
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <div class="mo-scroll-controls">
+        <a class="mo-scroll-btn" href="#mo-top" title="Go to top">↑</a>
+        <a class="mo-scroll-btn" href="#mo-bottom" title="Go to bottom">↓</a>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+st.markdown(
     '<div class="main-title">💳 MerchantOps AI</div>',
     unsafe_allow_html=True,
 )
@@ -164,7 +1355,65 @@ st.markdown(
 # ============================================================
 
 with st.sidebar:
+
     st.header("⚙️ Controls")
+
+    # ========================================================
+    # APPEARANCE
+    # ========================================================
+
+    st.markdown("### 🎨 Appearance")
+
+    dark_mode = st.toggle(
+        "🌙 Dark Mode",
+        value=(
+            st.session_state["theme_mode"]
+            ==
+            "dark"
+        ),
+        key="dashboard_theme_toggle",
+    )
+
+    selected_theme = (
+        "dark"
+        if dark_mode
+        else "light"
+    )
+
+    if (
+        selected_theme
+        !=
+        st.session_state["theme_mode"]
+    ):
+
+        st.session_state["theme_mode"] = (
+            selected_theme
+        )
+
+        st.rerun()
+
+    st.caption(
+        "Current theme: "
+        + (
+            "Dark"
+            if st.session_state["theme_mode"] == "dark"
+            else "Light"
+        )
+    )
+
+    st.caption(
+        "Switch the dashboard between dark glass and light glass."
+    )
+
+    st.divider()
+
+    # ========================================================
+    # PAYMENT DATA SOURCE
+    # ========================================================
+
+    st.markdown(
+        "### 💳 Payment Data Source"
+    )
 
     payment_source_label = st.radio(
         "Payment Data Source",
@@ -173,24 +1422,41 @@ with st.sidebar:
             "Razorpay Test Mode",
         ],
         index=0,
+        label_visibility="collapsed",
     )
 
     payment_source = (
         "razorpay"
-        if payment_source_label == "Razorpay Test Mode"
-        else "csv"
+        if payment_source_label
+        ==
+        "Razorpay Test Mode"
+        else
+        "csv"
     )
+
+    # ========================================================
+    # REFRESH
+    # ========================================================
 
     if st.button(
         "🔄 Refresh All Data",
         use_container_width=True,
+        key="sidebar_refresh_all",
     ):
+
         st.cache_data.clear()
+
         st.rerun()
 
     st.divider()
 
-    st.caption("Backend")
+    # ========================================================
+    # BACKEND
+    # ========================================================
+
+    st.markdown(
+        "### 🌐 Backend"
+    )
 
     st.code(
         API_URL,
@@ -207,13 +1473,22 @@ with st.sidebar:
 
     st.divider()
 
-    st.caption("Customer Checkout")
+    # ========================================================
+    # CUSTOMER CHECKOUT
+    # ========================================================
+
+    st.markdown(
+        "### 🛒 Customer Checkout"
+    )
 
     st.code(
         CHECKOUT_URL,
         language="text",
     )
 
+    st.caption(
+        "Customer payment page"
+    )
 
 # ============================================================
 # LOAD DATA
@@ -4428,4 +5703,9 @@ st.caption(
     "MerchantOps AI • Payment Intelligence • "
     "Revenue Recovery • Risk Analysis • "
     "Agentic Decision Automation • Razorpay Test Mode"
+)
+
+st.markdown(
+    '<div id="mo-bottom"></div>',
+    unsafe_allow_html=True,
 )

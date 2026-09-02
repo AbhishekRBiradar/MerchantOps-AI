@@ -1,0 +1,110 @@
+[
+  {
+    "product_id": "BP001",
+    "name": "Laptop Backpack Pro",
+    "category": "Backpacks",
+    "price": 1499.0,
+    "currency": "INR",
+    "stock": 32,
+    "description": "Premium water-resistant backpack for office, college and travel.",
+    "features": [
+      "15.6-inch laptop compartment",
+      "Water resistant",
+      "USB charging port",
+      "Padded shoulder straps"
+    ],
+    "tags": [
+      "office",
+      "college",
+      "travel",
+      "laptop"
+    ],
+    "variants": [
+      {
+        "variant_id": "BP001-BLK",
+        "name": "Black",
+        "price": 1499.0,
+        "stock": 20
+      },
+      {
+        "variant_id": "BP001-BLU",
+        "name": "Blue",
+        "price": 1549.0,
+        "stock": 12
+      }
+    ],
+    "related_products": [
+      "LS001",
+      "ORG001"
+    ]
+  },
+  {
+    "product_id": "LS001",
+    "name": "15.6-inch Laptop Sleeve",
+    "category": "Laptop Accessories",
+    "price": 499.0,
+    "currency": "INR",
+    "stock": 45,
+    "description": "Protective padded sleeve for laptops up to 15.6 inches.",
+    "features": [
+      "Water resistant",
+      "Padded protection",
+      "Lightweight"
+    ],
+    "tags": [
+      "laptop",
+      "office",
+      "travel",
+      "accessory"
+    ],
+    "variants": [
+      {
+        "variant_id": "LS001-BLK",
+        "name": "Black",
+        "price": 499.0,
+        "stock": 30
+      },
+      {
+        "variant_id": "LS001-GRY",
+        "name": "Grey",
+        "price": 549.0,
+        "stock": 15
+      }
+    ],
+    "related_products": [
+      "BP001"
+    ]
+  },
+  {
+    "product_id": "ORG001",
+    "name": "Travel Organizer",
+    "category": "Travel Accessories",
+    "price": 299.0,
+    "currency": "INR",
+    "stock": 60,
+    "description": "Compact organizer for chargers, cables and travel essentials.",
+    "features": [
+      "Multiple compartments",
+      "Cable storage",
+      "Travel friendly"
+    ],
+    "tags": [
+      "travel",
+      "office",
+      "organizer",
+      "accessory"
+    ],
+    "variants": [
+      {
+        "variant_id": "ORG001-BLK",
+        "name": "Black",
+        "price": 299.0,
+        "stock": 60
+      }
+    ],
+    "related_products": [
+      "BP001",
+      "LS001"
+    ]
+  }
+]
