@@ -1255,12 +1255,17 @@ st.markdown(
 # ============================================================
 
 @st.cache_data(ttl=10)
-def fetch_api(endpoint: str) -> Dict[str, Any]:
+def fetch_api(
+    endpoint: str,
+) -> Dict[str, Any]:
+
     response = requests.get(
         f"{API_URL}{endpoint}",
         timeout=60,
     )
+
     response.raise_for_status()
+
     return response.json()
 
 
@@ -1268,39 +1273,221 @@ def post_api(
     endpoint: str,
     payload: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+
     response = requests.post(
         f"{API_URL}{endpoint}",
         json=payload,
         timeout=60,
     )
+
     response.raise_for_status()
+
     return response.json()
 
 
-def safe_float(value: Any, default: float = 0.0) -> float:
+def put_api(
+    endpoint: str,
+    payload: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+
+    response = requests.put(
+        f"{API_URL}{endpoint}",
+        json=payload,
+        timeout=60,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+def patch_api(
+    endpoint: str,
+    payload: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+
+    response = requests.patch(
+        f"{API_URL}{endpoint}",
+        json=payload,
+        timeout=60,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+def delete_api(
+    endpoint: str,
+) -> Dict[str, Any]:
+
+    response = requests.delete(
+        f"{API_URL}{endpoint}",
+        timeout=60,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+# ============================================================
+# SECTION DATA LOADERS
+# ============================================================
+
+@st.cache_data(ttl=30)
+def get_payments_data(
+    source: str,
+) -> Dict[str, Any]:
+
+    return fetch_api(
+        f"/payments?source={source}"
+    )
+
+
+@st.cache_data(ttl=30)
+def get_analysis_data(
+    source: str,
+) -> Dict[str, Any]:
+
+    return fetch_api(
+        f"/analyze?source={source}"
+    )
+
+
+@st.cache_data(ttl=30)
+def get_decisions_data(
+    source: str,
+) -> Dict[str, Any]:
+
+    return fetch_api(
+        f"/decisions?source={source}"
+    )
+
+
+@st.cache_data(ttl=30)
+def get_activity_data() -> Dict[str, Any]:
+
+    return fetch_api(
+        "/activity/stats"
+    )
+
+
+@st.cache_data(ttl=30)
+def get_audit_data() -> Dict[str, Any]:
+
+    return fetch_api(
+        "/audit?limit=1000"
+    )
+
+
+@st.cache_data(ttl=30)
+def get_webhook_data() -> Dict[str, Any]:
+
+    return fetch_api(
+        "/webhooks/events"
+    )
+
+
+@st.cache_data(ttl=30)
+def get_verified_data() -> Dict[str, Any]:
+
+    return fetch_api(
+        "/payments/verified"
+    )
+
+
+@st.cache_data(ttl=30)
+def get_merchant_orders_data() -> Dict[str, Any]:
+
+    return fetch_api(
+        "/merchant/orders"
+    )
+
+
+@st.cache_data(ttl=30)
+def get_catalog_data() -> Dict[str, Any]:
+
+    return fetch_api(
+        "/catalog"
+    )
+
+# ============================================================
+# VALUE HELPERS
+# ============================================================
+
+def safe_float(
+    value: Any,
+    default: float = 0.0,
+) -> float:
+
     try:
+
         if value is None or value == "":
             return default
+
         return float(value)
-    except (TypeError, ValueError):
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
         return default
 
 
-def safe_int(value: Any, default: int = 0) -> int:
+def safe_int(
+    value: Any,
+    default: int = 0,
+) -> int:
+
     try:
+
         if value is None or value == "":
             return default
+
         return int(value)
-    except (TypeError, ValueError):
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
         return default
 
 
-def format_inr(value: Any) -> str:
-    return f"₹{safe_float(value):,.2f}"
+def format_inr(
+    value: Any,
+) -> str:
+
+    return (
+        f"₹{safe_float(value):,.2f}"
+    )
 
 
-def normalize_status(value: Any) -> str:
-    return str(value or "UNKNOWN").upper()
+def normalize_status(
+    value: Any,
+) -> str:
+
+    return str(
+        value or "UNKNOWN"
+    ).upper()
+
+
+# ============================================================
+# SESSION STATE
+# ============================================================
+
+if "last_created_order" not in st.session_state:
+    st.session_state["last_created_order"] = None
+
+if "loaded_order_id" not in st.session_state:
+    st.session_state["loaded_order_id"] = ""
+
+if "payment_view" not in st.session_state:
+    st.session_state["payment_view"] = (
+        "Merchant Orders"
+    )
 
 
 # ============================================================
@@ -1495,6 +1682,7 @@ with st.sidebar:
 # ============================================================
 
 try:
+
     payments_data = fetch_api(
         f"/payments?source={payment_source}"
     )
@@ -1528,13 +1716,19 @@ try:
     )
 
 except Exception as exc:
+
     st.error(
         "❌ Unable to connect to MerchantOps API."
     )
-    st.code(str(exc))
+
+    st.code(
+        str(exc)
+    )
+
     st.info(
         "Start FastAPI or check API_URL."
     )
+
     st.stop()
 
 
@@ -1562,6 +1756,7 @@ decision_records = decisions_data.get(
     "decisions",
     [],
 ) or []
+
 
 
 # ============================================================
@@ -1593,6 +1788,8 @@ tabs = st.tabs(
     [
         "📊 Overview",
         "💰 Create Order",
+        "🛍️ Catalog",
+        "🤖 Buyer AI",
         "💳 Payments",
         "🤖 AI Recovery",
         "🛡️ Approvals",
@@ -1601,24 +1798,71 @@ tabs = st.tabs(
     ]
 )
 
-
 # ============================================================
 # TAB 1 — OVERVIEW
 # ============================================================
 
 with tabs[0]:
 
-    st.markdown(
-        '<div class="section-title">'
-        "📊 Merchant Command Center"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+    try:
 
-    st.caption(
-        "A live merchant view of payment health, revenue at risk, "
-        "AI recovery opportunities and governance status."
-    )
+        payments_data = get_payments_data(
+            payment_source
+        )
+
+        analysis_data = get_analysis_data(
+            payment_source
+        )
+
+        decisions_data = get_decisions_data(
+            payment_source
+        )
+
+        activity_data = get_activity_data()
+
+        verified_data = get_verified_data()
+
+        merchant_orders_data = (
+            get_merchant_orders_data()
+        )
+
+        verified_payments = (
+            verified_data.get(
+                "payments",
+                [],
+            )
+            or []
+        )
+
+        merchant_orders = (
+            merchant_orders_data.get(
+                "orders",
+                [],
+            )
+            or []
+        )
+
+        decision_records = (
+            decisions_data.get(
+                "decisions",
+                [],
+            )
+            or []
+        )
+
+    except Exception as exc:
+
+        st.error(
+            "❌ Unable to load Overview data."
+        )
+
+        st.code(
+            str(exc)
+        )
+
+        st.stop()
+
+    # YOUR EXISTING OVERVIEW CODE CONTINUES HERE
 
     # ========================================================
     # CORE METRICS
@@ -2907,23 +3151,1732 @@ with tabs[1]:
             )
 
 # ============================================================
-# TAB 3 — PAYMENTS
+# TAB 3 — CATALOG
 # ============================================================
 
 with tabs[2]:
 
+    try:
+
+        catalog_response = get_catalog_data()
+
+        catalog_products = (
+            catalog_response.get(
+                "products",
+                [],
+            )
+            or []
+        )
+
+        catalog_summary_data = (
+            catalog_response.get(
+                "summary",
+                {},
+            )
+            or {}
+        )
+
+    except Exception as exc:
+
+        st.error(
+            "❌ Unable to load Catalog data."
+        )
+
+        st.code(
+            str(exc)
+        )
+
+        st.stop()
+
+    # YOUR EXISTING CATALOG UI CONTINUES HERE
+
+    # ========================================================
+    # LOAD CATALOG
+    # ========================================================
+
+    try:
+
+        catalog_response = fetch_api(
+            "/catalog"
+        )
+
+        catalog_products = (
+            catalog_response.get(
+                "products",
+                [],
+            )
+            or []
+        )
+
+        catalog_summary_data = (
+            catalog_response.get(
+                "summary",
+                {},
+            )
+            or {}
+        )
+
+    except Exception as exc:
+
+        catalog_products = []
+
+        catalog_summary_data = {}
+
+        st.error(
+            "Unable to load product catalog."
+        )
+
+        st.code(
+            str(exc)
+        )
+
+
+    # ========================================================
+    # CATALOG SUMMARY
+    # ========================================================
+
+    catalog_count = len(
+        catalog_products
+    )
+
+    catalog_stock = safe_int(
+        catalog_summary_data.get(
+            "total_stock",
+            sum(
+                safe_int(
+                    product.get(
+                        "stock"
+                    )
+                )
+                for product
+                in catalog_products
+            ),
+        )
+    )
+
+    categories = (
+        catalog_summary_data.get(
+            "categories",
+            [],
+        )
+        or []
+    )
+
+
+    c1, c2, c3, c4 = st.columns(4)
+
+
+    with c1:
+
+        st.metric(
+            "Products",
+            f"{catalog_count:,}",
+        )
+
+
+    with c2:
+
+        st.metric(
+            "Total Stock",
+            f"{catalog_stock:,}",
+        )
+
+
+    with c3:
+
+        st.metric(
+            "Categories",
+            f"{len(categories):,}",
+        )
+
+
+    with c4:
+
+        st.metric(
+            "Catalog Storage",
+            str(
+                catalog_summary_data.get(
+                    "storage",
+                    "unknown",
+                )
+            ).upper(),
+        )
+
+
+    st.divider()
+
+
+    # ========================================================
+    # SEARCH
+    # ========================================================
+
+    st.markdown(
+        "### 🔎 Product Explorer"
+    )
+
+    catalog_search = st.text_input(
+        "Search catalog",
+        placeholder=(
+            "backpack / laptop / travel / office..."
+        ),
+        key="catalog_search_input",
+    ).strip()
+
+
+    filtered_products = (
+        catalog_products.copy()
+    )
+
+
+    if catalog_search:
+
+        search_value = (
+            catalog_search.lower()
+        )
+
+        filtered_products = [
+
+            product
+
+            for product
+            in filtered_products
+
+            if search_value
+            in " ".join(
+                [
+                    str(
+                        product.get(
+                            "product_id",
+                            "",
+                        )
+                    ),
+                    str(
+                        product.get(
+                            "name",
+                            "",
+                        )
+                    ),
+                    str(
+                        product.get(
+                            "category",
+                            "",
+                        )
+                    ),
+                    str(
+                        product.get(
+                            "description",
+                            "",
+                        )
+                    ),
+                    " ".join(
+                        map(
+                            str,
+                            product.get(
+                                "tags",
+                                [],
+                            ),
+                        )
+                    ),
+                ]
+            ).lower()
+
+        ]
+
+
+    st.caption(
+        f"Showing {len(filtered_products)} "
+        f"of {catalog_count} product(s)."
+    )
+
+
+    # ========================================================
+    # PRODUCT TABLE
+    # ========================================================
+
+    if filtered_products:
+
+        catalog_table = pd.DataFrame(
+            [
+                {
+                    "Product ID":
+                        product.get(
+                            "product_id"
+                        ),
+
+                    "Product":
+                        product.get(
+                            "name"
+                        ),
+
+                    "Category":
+                        product.get(
+                            "category"
+                        ),
+
+                    "Price":
+                        format_inr(
+                            product.get(
+                                "price"
+                            )
+                        ),
+
+                    "Stock":
+                        safe_int(
+                            product.get(
+                                "stock"
+                            )
+                        ),
+
+                    "Variants":
+                        len(
+                            product.get(
+                                "variants",
+                                [],
+                            )
+                            or []
+                        ),
+
+                    "Tags":
+                        ", ".join(
+                            map(
+                                str,
+                                product.get(
+                                    "tags",
+                                    [],
+                                )
+                            )
+                        ),
+                }
+
+                for product
+                in filtered_products
+            ]
+        )
+
+
+        st.dataframe(
+            catalog_table,
+            use_container_width=True,
+            height=380,
+            hide_index=True,
+        )
+
+    else:
+
+        st.info(
+            "No catalog products match your search."
+        )
+
+
+    st.divider()
+
+
+    # ========================================================
+    # PRODUCT DETAIL / EDITOR
+    # ========================================================
+
+    st.markdown(
+        "### 🧾 Product Management"
+    )
+
+
+    product_ids = [
+        str(
+            product.get(
+                "product_id"
+            )
+        )
+
+        for product
+        in catalog_products
+
+        if product.get(
+            "product_id"
+        )
+    ]
+
+
+    editor_mode = st.radio(
+        "Action",
+        [
+            "Add Product",
+            "Edit Product",
+            "Update Stock",
+            "Delete Product",
+        ],
+        horizontal=True,
+        key="catalog_editor_mode",
+    )
+
+
+    # ========================================================
+    # ADD PRODUCT
+    # ========================================================
+
+    if editor_mode == "Add Product":
+
+        with st.form(
+            "catalog_add_product_form",
+            clear_on_submit=False,
+        ):
+
+            st.markdown(
+                "#### ➕ Add New Product"
+            )
+
+            a1, a2 = st.columns(2)
+
+            with a1:
+
+                add_product_id = st.text_input(
+                    "Product ID",
+                    placeholder="M001",
+                )
+
+            with a2:
+
+                add_product_name = st.text_input(
+                    "Product Name",
+                    placeholder="Wireless Mouse Pro",
+                )
+
+            add_category = st.text_input(
+                "Category",
+                placeholder="Computer Accessories",
+            )
+
+            a3, a4, a5 = st.columns(3)
+
+            with a3:
+
+                add_price = st.number_input(
+                    "Price (₹)",
+                    min_value=0.0,
+                    value=0.0,
+                    step=1.0,
+                )
+
+            with a4:
+
+                add_stock = st.number_input(
+                    "Stock",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                )
+
+            with a5:
+
+                add_currency = st.text_input(
+                    "Currency",
+                    value="INR",
+                    max_chars=3,
+                )
+
+            add_description = st.text_area(
+                "Description",
+                placeholder="Describe the product...",
+            )
+
+            add_features = st.text_input(
+                "Features",
+                placeholder=(
+                    "Wireless, Rechargeable, Ergonomic"
+                ),
+            )
+
+            add_tags = st.text_input(
+                "Tags",
+                placeholder=(
+                    "mouse, wireless, office"
+                ),
+            )
+
+            add_related = st.text_input(
+                "Related Product IDs",
+                placeholder=(
+                    "BP001, LS001"
+                ),
+            )
+
+            add_product_clicked = st.form_submit_button(
+                "➕ Create Product",
+                use_container_width=True,
+                type="primary",
+            )
+
+
+        if add_product_clicked:
+
+            features = [
+                value.strip()
+                for value
+                in add_features.split(",")
+                if value.strip()
+            ]
+
+            tags = [
+                value.strip()
+                for value
+                in add_tags.split(",")
+                if value.strip()
+            ]
+
+            related_products = [
+                value.strip()
+                for value
+                in add_related.split(",")
+                if value.strip()
+            ]
+
+
+            payload = {
+                "product_id":
+                    add_product_id.strip(),
+
+                "name":
+                    add_product_name.strip(),
+
+                "category":
+                    add_category.strip(),
+
+                "price":
+                    float(add_price),
+
+                "currency":
+                    add_currency.strip().upper(),
+
+                "stock":
+                    int(add_stock),
+
+                "description":
+                    add_description.strip(),
+
+                "features":
+                    features,
+
+                "tags":
+                    tags,
+
+                "variants":
+                    [],
+
+                "related_products":
+                    related_products,
+            }
+
+
+            try:
+
+                response = post_api(
+                    "/catalog",
+                    payload,
+                )
+
+                st.success(
+                    "✅ Product created successfully."
+                )
+
+                st.json(
+                    response
+                )
+
+                st.cache_data.clear()
+
+            except Exception as exc:
+
+                st.error(
+                    "Unable to create product."
+                )
+
+                st.code(
+                    str(exc)
+                )
+
+
+    # ========================================================
+    # EDIT PRODUCT
+    # ========================================================
+
+    elif editor_mode == "Edit Product":
+
+        if not product_ids:
+
+            st.info(
+                "No products available to edit."
+            )
+
+        else:
+
+            selected_product_id = st.selectbox(
+                "Select Product",
+                product_ids,
+                key="catalog_edit_product_id",
+            )
+
+
+            selected_product = next(
+
+                (
+                    product
+                    for product
+                    in catalog_products
+                    if str(
+                        product.get(
+                            "product_id"
+                        )
+                    )
+                    ==
+                    selected_product_id
+                ),
+
+                None,
+            )
+
+
+            if selected_product:
+
+                variants = (
+                    selected_product.get(
+                        "variants",
+                        [],
+                    )
+                    or []
+                )
+
+
+                with st.form(
+                    "catalog_edit_product_form",
+                    clear_on_submit=False,
+                ):
+
+                    st.markdown(
+                        "#### ✏️ Edit Product"
+                    )
+
+                    e1, e2 = st.columns(2)
+
+                    with e1:
+
+                        edit_name = st.text_input(
+                            "Product Name",
+                            value=str(
+                                selected_product.get(
+                                    "name",
+                                    "",
+                                )
+                            ),
+                        )
+
+                    with e2:
+
+                        edit_category = st.text_input(
+                            "Category",
+                            value=str(
+                                selected_product.get(
+                                    "category",
+                                    "",
+                                )
+                            ),
+                        )
+
+                    e3, e4, e5 = st.columns(3)
+
+                    with e3:
+
+                        edit_price = st.number_input(
+                            "Price (₹)",
+                            min_value=0.0,
+                            value=float(
+                                selected_product.get(
+                                    "price",
+                                    0,
+                                )
+                                or 0
+                            ),
+                            step=1.0,
+                        )
+
+                    with e4:
+
+                        edit_stock = st.number_input(
+                            "Stock",
+                            min_value=0,
+                            value=int(
+                                selected_product.get(
+                                    "stock",
+                                    0,
+                                )
+                                or 0
+                            ),
+                            step=1,
+                        )
+
+                    with e5:
+
+                        edit_currency = st.text_input(
+                            "Currency",
+                            value=str(
+                                selected_product.get(
+                                    "currency",
+                                    "INR",
+                                )
+                            ),
+                            max_chars=3,
+                        )
+
+                    edit_description = st.text_area(
+                        "Description",
+                        value=str(
+                            selected_product.get(
+                                "description",
+                                "",
+                            )
+                        ),
+                    )
+
+                    edit_features = st.text_input(
+                        "Features",
+                        value=", ".join(
+                            map(
+                                str,
+                                selected_product.get(
+                                    "features",
+                                    [],
+                                )
+                            )
+                        ),
+                    )
+
+                    edit_tags = st.text_input(
+                        "Tags",
+                        value=", ".join(
+                            map(
+                                str,
+                                selected_product.get(
+                                    "tags",
+                                    [],
+                                )
+                            )
+                        ),
+                    )
+
+                    edit_related = st.text_input(
+                        "Related Product IDs",
+                        value=", ".join(
+                            map(
+                                str,
+                                selected_product.get(
+                                    "related_products",
+                                    [],
+                                )
+                            )
+                        ),
+                    )
+
+
+                    edit_variants_json = st.text_area(
+                        "Variants JSON",
+                        value=json.dumps(
+                            variants,
+                            indent=2,
+                        ),
+                        height=180,
+                    )
+
+
+                    save_edit = st.form_submit_button(
+                        "💾 Save Product",
+                        use_container_width=True,
+                        type="primary",
+                    )
+
+
+                if save_edit:
+
+                    try:
+
+                        parsed_variants = json.loads(
+                            edit_variants_json
+                        )
+
+                        if not isinstance(
+                            parsed_variants,
+                            list,
+                        ):
+
+                            raise ValueError(
+                                "Variants JSON must be a list."
+                            )
+
+                    except Exception as exc:
+
+                        st.error(
+                            f"Invalid variants JSON: {exc}"
+                        )
+
+                        parsed_variants = None
+
+
+                    if parsed_variants is not None:
+
+                        payload = {
+
+                            "product_id":
+                                selected_product_id,
+
+                            "name":
+                                edit_name.strip(),
+
+                            "category":
+                                edit_category.strip(),
+
+                            "price":
+                                float(edit_price),
+
+                            "currency":
+                                edit_currency.strip().upper(),
+
+                            "stock":
+                                int(edit_stock),
+
+                            "description":
+                                edit_description.strip(),
+
+                            "features": [
+                                value.strip()
+                                for value
+                                in edit_features.split(",")
+                                if value.strip()
+                            ],
+
+                            "tags": [
+                                value.strip()
+                                for value
+                                in edit_tags.split(",")
+                                if value.strip()
+                            ],
+
+                            "variants":
+                                parsed_variants,
+
+                            "related_products": [
+                                value.strip()
+                                for value
+                                in edit_related.split(",")
+                                if value.strip()
+                            ],
+                        }
+
+
+                        try:
+
+                            response = put_api(
+                                f"/catalog/"
+                                f"{selected_product_id}",
+                                payload,
+                            )
+
+                            st.success(
+                                "✅ Product updated successfully."
+                            )
+
+                            st.json(
+                                response
+                            )
+
+                            st.cache_data.clear()
+
+                        except Exception as exc:
+
+                            st.error(
+                                "Unable to update product."
+                            )
+
+                            st.code(
+                                str(exc)
+                            )
+
+
+    # ========================================================
+    # UPDATE STOCK
+    # ========================================================
+
+    elif editor_mode == "Update Stock":
+
+        if not product_ids:
+
+            st.info(
+                "No products available."
+            )
+
+        else:
+
+            selected_stock_product = st.selectbox(
+                "Select Product",
+                product_ids,
+                key="catalog_stock_product_id",
+            )
+
+            selected_stock_value = st.number_input(
+                "New Stock Quantity",
+                min_value=0,
+                value=int(
+                    next(
+                        (
+                            product.get(
+                                "stock",
+                                0,
+                            )
+                            for product
+                            in catalog_products
+                            if str(
+                                product.get(
+                                    "product_id"
+                                )
+                            )
+                            ==
+                            selected_stock_product
+                        ),
+                        0,
+                    )
+                    or 0
+                ),
+                step=1,
+            )
+
+
+            if st.button(
+                "📦 Update Stock",
+                use_container_width=True,
+                type="primary",
+                key="catalog_update_stock_button",
+            ):
+
+                try:
+
+                    response = patch_api(
+                        f"/catalog/"
+                        f"{selected_stock_product}"
+                        "/stock",
+                        {
+                            "stock":
+                                int(
+                                    selected_stock_value
+                                )
+                        },
+                    )
+
+                    st.success(
+                        "✅ Stock updated successfully."
+                    )
+
+                    st.json(
+                        response
+                    )
+
+                    st.cache_data.clear()
+
+                except Exception as exc:
+
+                    st.error(
+                        "Unable to update stock."
+                    )
+
+                    st.code(
+                        str(exc)
+                    )
+
+
+    # ========================================================
+    # DELETE PRODUCT
+    # ========================================================
+
+    else:
+
+        if not product_ids:
+
+            st.info(
+                "No products available."
+            )
+
+        else:
+
+            delete_product_id = st.selectbox(
+                "Select Product to Delete",
+                product_ids,
+                key="catalog_delete_product_id",
+            )
+
+
+            st.warning(
+                "Deleting a catalog product is permanent "
+                "for the active storage backend."
+            )
+
+
+            confirm_delete = st.checkbox(
+                "I understand that this product will be deleted.",
+                key="catalog_confirm_delete",
+            )
+
+
+            if st.button(
+                "🗑️ Delete Product",
+                use_container_width=True,
+                type="primary",
+                disabled=not confirm_delete,
+                key="catalog_delete_button",
+            ):
+
+                try:
+
+                    response = delete_api(
+                        f"/catalog/"
+                        f"{delete_product_id}"
+                    )
+
+                    st.success(
+                        "✅ Product deleted successfully."
+                    )
+
+                    st.json(
+                        response
+                    )
+
+                    st.cache_data.clear()
+
+                except Exception as exc:
+
+                    st.error(
+                        "Unable to delete product."
+                    )
+
+                    st.code(
+                        str(exc)
+                    )
+
+
+# ============================================================
+# TAB 4 — BUYER AI
+# ============================================================
+
+with tabs[3]:
+
     st.markdown(
         '<div class="section-title">'
-        "💳 Payment Operations"
+        "🤖 MerchantOps Buyer AI"
         "</div>",
         unsafe_allow_html=True,
     )
 
     st.caption(
-        "Search and inspect merchant orders, verified payments, "
-        "customer details, payment state, and server-side events."
+        "A conversational shopping assistant powered by your "
+        "live merchant catalog."
     )
 
+    # ========================================================
+    # BUYER AI SESSION
+    # ========================================================
+
+    if "buyer_messages" not in st.session_state:
+
+        st.session_state[
+            "buyer_messages"
+        ] = []
+
+    if "buyer_last_response" not in st.session_state:
+
+        st.session_state[
+            "buyer_last_response"
+        ] = None
+
+    # ========================================================
+    # QUICK PROMPTS
+    # ========================================================
+
+    st.markdown(
+        "### 💡 Try a shopping request"
+    )
+
+    qp1, qp2, qp3, qp4 = st.columns(4)
+
+    with qp1:
+
+        if st.button(
+            "🎒 Backpack under ₹2,000",
+            use_container_width=True,
+            key="buyer_quick_backpack",
+        ):
+
+            st.session_state[
+                "buyer_pending_prompt"
+            ] = (
+                "I need a laptop backpack under ₹2000 "
+                "for office and travel"
+            )
+
+    with qp2:
+
+        if st.button(
+            "💻 Laptop accessories",
+            use_container_width=True,
+            key="buyer_quick_laptop",
+        ):
+
+            st.session_state[
+                "buyer_pending_prompt"
+            ] = (
+                "Show me laptop accessories"
+            )
+
+    with qp3:
+
+        if st.button(
+            "✈️ Travel products",
+            use_container_width=True,
+            key="buyer_quick_travel",
+        ):
+
+            st.session_state[
+                "buyer_pending_prompt"
+            ] = (
+                "Show me products for travel"
+            )
+
+    with qp4:
+
+        if st.button(
+            "🔥 Best value",
+            use_container_width=True,
+            key="buyer_quick_value",
+        ):
+
+            st.session_state[
+                "buyer_pending_prompt"
+            ] = (
+                "What is the best value product "
+                "available right now?"
+            )
+
+    st.divider()
+
+    # ========================================================
+    # CHAT HISTORY
+    # ========================================================
+
+    if st.session_state[
+        "buyer_messages"
+    ]:
+
+        st.markdown(
+            "### 💬 Conversation"
+        )
+
+        for message in st.session_state[
+            "buyer_messages"
+        ]:
+
+            role = message.get(
+                "role",
+                "assistant",
+            )
+
+            content = message.get(
+                "content",
+                "",
+            )
+
+            if role == "user":
+
+                with st.chat_message(
+                    "user"
+                ):
+
+                    st.markdown(
+                        content
+                    )
+
+            else:
+
+                with st.chat_message(
+                    "assistant"
+                ):
+
+                    st.markdown(
+                        content
+                    )
+
+
+    # ========================================================
+    # BUYER INPUT
+    # ========================================================
+
+    pending_prompt = st.session_state.pop(
+        "buyer_pending_prompt",
+        "",
+    )
+
+    user_message = st.chat_input(
+        "Ask me what you want to buy...",
+        key="buyer_chat_input",
+    )
+
+    if not user_message and pending_prompt:
+
+        user_message = pending_prompt
+
+
+    # ========================================================
+    # SEND MESSAGE
+    # ========================================================
+
+    if user_message:
+
+        user_message = (
+            str(user_message)
+            .strip()
+        )
+
+        if user_message:
+
+            st.session_state[
+                "buyer_messages"
+            ].append(
+                {
+                    "role": "user",
+                    "content": user_message,
+                }
+            )
+
+            try:
+
+                with st.spinner(
+                    "🤖 Buyer AI is searching the catalog..."
+                ):
+
+                    buyer_response = post_api(
+                        "/buyer/chat",
+                        {
+                            "message":
+                                user_message
+                        },
+                    )
+
+
+                intent = buyer_response.get(
+                    "intent",
+                    "UNKNOWN",
+                )
+
+                response_text = buyer_response.get(
+                    "message",
+                    "I couldn't find a suitable product.",
+                )
+
+                products = (
+                    buyer_response.get(
+                        "products",
+                        [],
+                    )
+                    or []
+                )
+
+                filters = (
+                    buyer_response.get(
+                        "filters",
+                        {},
+                    )
+                    or {}
+                )
+
+
+                # ============================================
+                # AI MESSAGE
+                # ============================================
+
+                st.session_state[
+                    "buyer_messages"
+                ].append(
+                    {
+                        "role":
+                            "assistant",
+
+                        "content":
+                            response_text,
+                    }
+                )
+
+
+                st.session_state[
+                    "buyer_last_response"
+                ] = buyer_response
+
+
+                # ============================================
+                # RESPONSE
+                # ============================================
+
+                st.markdown(
+                    "### 🤖 Buyer AI Response"
+                )
+
+                st.success(
+                    response_text
+                )
+
+
+                # ============================================
+                # INTENT
+                # ============================================
+
+                intent_col1, intent_col2 = st.columns(
+                    2
+                )
+
+                with intent_col1:
+
+                    st.metric(
+                        "Detected Intent",
+                        str(
+                            intent
+                        ),
+                    )
+
+                with intent_col2:
+
+                    st.metric(
+                        "Matches",
+                        len(
+                            products
+                        ),
+                    )
+
+
+                # ============================================
+                # FILTERS
+                # ============================================
+
+                if filters:
+
+                    st.markdown(
+                        "#### 🎯 Understood Requirements"
+                    )
+
+                    filter_items = []
+
+                    for key, value in filters.items():
+
+                        if isinstance(
+                            value,
+                            list,
+                        ):
+
+                            value = ", ".join(
+                                map(
+                                    str,
+                                    value,
+                                )
+                            )
+
+                        filter_items.append(
+                            {
+                                "Requirement":
+                                    str(
+                                        key
+                                    ),
+
+                                "Value":
+                                    str(
+                                        value
+                                    ),
+                            }
+                        )
+
+                    st.dataframe(
+                        pd.DataFrame(
+                            filter_items
+                        ),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+
+                # ============================================
+                # PRODUCT RESULTS
+                # ============================================
+
+                if products:
+
+                    st.markdown(
+                        "### 🛍️ Recommended Products"
+                    )
+
+                    for index, product in enumerate(
+                        products[:5]
+                    ):
+
+                        product_id = str(
+                            product.get(
+                                "product_id",
+                                "",
+                            )
+                        )
+
+                        product_name = str(
+                            product.get(
+                                "name",
+                                "Product",
+                            )
+                        )
+
+                        price = safe_float(
+                            product.get(
+                                "price",
+                                0,
+                            )
+                        )
+
+                        stock = safe_int(
+                            product.get(
+                                "stock",
+                                0,
+                            )
+                        )
+
+                        category = str(
+                            product.get(
+                                "category",
+                                "",
+                            )
+                        )
+
+                        description = str(
+                            product.get(
+                                "description",
+                                "",
+                            )
+                        )
+
+
+                        with st.container(
+                            border=True,
+                        ):
+
+                            p1, p2, p3 = st.columns(
+                                [
+                                    3,
+                                    1,
+                                    1,
+                                ]
+                            )
+
+                            with p1:
+
+                                st.markdown(
+                                    f"#### {product_name}"
+                                )
+
+                                st.caption(
+                                    f"{product_id} • "
+                                    f"{category}"
+                                )
+
+                            with p2:
+
+                                st.metric(
+                                    "Price",
+                                    format_inr(
+                                        price
+                                    ),
+                                )
+
+                            with p3:
+
+                                st.metric(
+                                    "Stock",
+                                    stock,
+                                )
+
+                            if description:
+
+                                st.write(
+                                    description
+                                )
+
+
+                            features = (
+                                product.get(
+                                    "features",
+                                    [],
+                                )
+                                or []
+                            )
+
+                            if features:
+
+                                st.caption(
+                                    " • ".join(
+                                        map(
+                                            str,
+                                            features[:4],
+                                        )
+                                    )
+                                )
+
+
+                            action_col1, action_col2 = st.columns(
+                                2
+                            )
+
+                            with action_col1:
+
+                                if st.button(
+                                    "🔍 View Details",
+                                    use_container_width=True,
+                                    key=(
+                                        "buyer_details_"
+                                        f"{product_id}_"
+                                        f"{index}"
+                                    ),
+                                ):
+
+                                    try:
+
+                                        detail = post_api(
+                                            "/buyer/search",
+                                            {
+                                                "message":
+                                                    (
+                                                        "Show me details "
+                                                        f"about {product_name}"
+                                                    )
+                                            },
+                                        )
+
+                                        st.json(
+                                            detail
+                                        )
+
+                                    except Exception as exc:
+
+                                        st.error(
+                                            "Unable to load details."
+                                        )
+
+                                        st.code(
+                                            str(exc)
+                                        )
+
+                            with action_col2:
+
+                                if st.button(
+                                    "➕ Select Product",
+                                    use_container_width=True,
+                                    key=(
+                                        "buyer_select_"
+                                        f"{product_id}_"
+                                        f"{index}"
+                                    ),
+                                ):
+
+                                    st.session_state[
+                                        "buyer_selected_product"
+                                    ] = product
+
+                                    st.success(
+                                        f"{product_name} selected."
+                                    )
+
+
+                else:
+
+                    st.warning(
+                        "No matching in-stock products "
+                        "were returned by Buyer AI."
+                    )
+
+
+            except Exception as exc:
+
+                st.session_state[
+                    "buyer_messages"
+                ].append(
+                    {
+                        "role":
+                            "assistant",
+
+                        "content":
+                            (
+                                "I couldn't reach the Buyer AI "
+                                "service right now."
+                            ),
+                    }
+                )
+
+                st.error(
+                    "Unable to reach Buyer AI."
+                )
+
+                st.code(
+                    str(exc)
+                )
+
+
+    # ========================================================
+    # SELECTED PRODUCT
+    # ========================================================
+
+    selected_product = st.session_state.get(
+        "buyer_selected_product"
+    )
+
+    if selected_product:
+
+        st.divider()
+
+        st.markdown(
+            "### 🛒 Selected Product"
+        )
+
+        selected_name = selected_product.get(
+            "name",
+            "Product",
+        )
+
+        selected_price = safe_float(
+            selected_product.get(
+                "price",
+                0,
+            )
+        )
+
+        selected_stock = safe_int(
+            selected_product.get(
+                "stock",
+                0,
+            )
+        )
+
+        s1, s2, s3 = st.columns(3)
+
+        with s1:
+
+            st.metric(
+                "Product",
+                str(
+                    selected_name
+                ),
+            )
+
+        with s2:
+
+            st.metric(
+                "Price",
+                format_inr(
+                    selected_price
+                ),
+            )
+
+        with s3:
+
+            st.metric(
+                "Available",
+                selected_stock,
+            )
+
+        st.info(
+            "Cart and conversational checkout will be connected "
+            "to this selection in the next commerce phase."
+        )
+
+
+    # ========================================================
+    # CLEAR CONVERSATION
+    # ========================================================
+
+    if st.session_state[
+        "buyer_messages"
+    ]:
+
+        if st.button(
+            "🗑️ Clear Conversation",
+            key="buyer_clear_conversation",
+        ):
+
+            st.session_state[
+                "buyer_messages"
+            ] = []
+
+            st.session_state[
+                "buyer_last_response"
+            ] = None
+
+            st.session_state.pop(
+                "buyer_selected_product",
+                None,
+            )
+
+            st.rerun()
+# ============================================================
+# TAB 4 — PAYMENTS
+# ============================================================
+
+with tabs[4]:
+
+    try:
+
+        payments_data = get_payments_data(
+            payment_source
+        )
+
+        verified_data = get_verified_data()
+
+        merchant_orders_data = (
+            get_merchant_orders_data()
+        )
+
+        activity_data = get_activity_data()
+
+        webhook_data = get_webhook_data()
+
+        verified_payments = (
+            verified_data.get(
+                "payments",
+                [],
+            )
+            or []
+        )
+
+        merchant_orders = (
+            merchant_orders_data.get(
+                "orders",
+                [],
+            )
+            or []
+        )
+
+        webhook_events = (
+            webhook_data.get(
+                "events",
+                [],
+            )
+            or []
+        )
+
+    except Exception as exc:
+
+        st.error(
+            "❌ Unable to load Payments data."
+        )
+
+        st.code(
+            str(exc)
+        )
+
+        st.stop()
+
+    # YOUR EXISTING PAYMENTS UI CONTINUES HERE
 
     # ========================================================
     # REFRESH
@@ -4184,22 +6137,42 @@ with tabs[2]:
             )
 
 # ============================================================
-# TAB 4 — AI RECOVERY
+# TAB 5 — AI RECOVERY
 # ============================================================
 
-with tabs[3]:
+with tabs[5]:
 
-    st.markdown(
-        '<div class="section-title">'
-        "🤖 AI Recovery & Decision Intelligence"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+    try:
 
-    st.caption(
-        "Explainable recovery decisions generated from "
-        "failure signals, risk scoring, simulation and governance."
-    )
+        analysis_data = get_analysis_data(
+            payment_source
+        )
+
+        decisions_data = get_decisions_data(
+            payment_source
+        )
+
+        decision_records = (
+            decisions_data.get(
+                "decisions",
+                [],
+            )
+            or []
+        )
+
+    except Exception as exc:
+
+        st.error(
+            "❌ Unable to load AI Recovery data."
+        )
+
+        st.code(
+            str(exc)
+        )
+
+        st.stop()
+
+    # YOUR EXISTING AI RECOVERY UI CONTINUES HERE
 
     # ========================================================
     # NO DECISIONS
@@ -5297,354 +7270,104 @@ with tabs[3]:
 
 
 # ============================================================
-# TAB 5 — APPROVALS
-# ============================================================
-
-with tabs[4]:
-
-    st.markdown(
-        '<div class="section-title">'
-        "🛡️ Merchant Approval Queue"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-    approval_rows = []
-
-    for decision in decision_records:
-
-        if not decision.get(
-            "approval_required",
-            False,
-        ):
-            continue
-
-        approval_rows.append(
-            {
-                "Payment ID":
-                    decision.get(
-                        "payment_id"
-                    ),
-                "Order ID":
-                    decision.get(
-                        "order_id"
-                    ),
-                "Amount":
-                    format_inr(
-                        decision.get(
-                            "amount"
-                        )
-                    ),
-                "Risk":
-                    decision.get(
-                        "risk_level"
-                    ),
-                "Expected Recovery":
-                    format_inr(
-                        decision.get(
-                            "expected_recovery"
-                        )
-                    ),
-                "Action":
-                    decision.get(
-                        "final_action"
-                    ),
-                "Reason":
-                    decision.get(
-                        "decision_reason"
-                    ),
-            }
-        )
-
-    if approval_rows:
-
-        st.warning(
-            f"{len(approval_rows)} decision(s) require merchant approval."
-        )
-
-        st.dataframe(
-            pd.DataFrame(
-                approval_rows
-            ),
-            use_container_width=True,
-            height=500,
-            hide_index=True,
-        )
-
-        st.caption(
-            "Approval controls are governance/demo controls. "
-            "The dashboard does not execute live financial recovery actions."
-        )
-
-    else:
-
-        st.success(
-            "No merchant approvals currently required."
-        )
-
-
-# ============================================================
-# TAB 6 — WEBHOOKS
-# ============================================================
-
-with tabs[5]:
-
-    st.markdown(
-        '<div class="section-title">'
-        "🔔 Razorpay Webhook Activity"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-    w1, w2, w3 = st.columns(3)
-
-    with w1:
-        st.metric(
-            "Webhook Events",
-            safe_int(
-                activity_data.get(
-                    "webhook_events",
-                    0,
-                )
-            ),
-        )
-
-    with w2:
-        st.metric(
-            "Webhook Processing",
-            safe_int(
-                activity_data.get(
-                    "webhook_processing",
-                    0,
-                )
-            ),
-        )
-
-    with w3:
-        st.metric(
-            "Verified Payments",
-            safe_int(
-                activity_data.get(
-                    "verified_payments",
-                    0,
-                )
-            ),
-        )
-
-    st.divider()
-
-    if webhook_events:
-
-        webhook_df = pd.DataFrame(
-            webhook_events
-        )
-
-        webhook_search = st.text_input(
-            "🔎 Search webhook events",
-            placeholder="payment.captured / payment.failed / pay_...",
-            key="webhook_search",
-        ).strip().lower()
-
-        if webhook_search:
-
-            mask = pd.Series(
-                False,
-                index=webhook_df.index,
-            )
-
-            for column in webhook_df.columns:
-
-                values = (
-                    webhook_df[column]
-                    .fillna("")
-                    .astype(str)
-                    .str.lower()
-                )
-
-                mask = (
-                    mask
-                    |
-                    values.str.contains(
-                        webhook_search,
-                        regex=False,
-                        na=False,
-                    )
-                )
-
-            webhook_df = webhook_df[
-                mask
-            ]
-
-        st.dataframe(
-            webhook_df,
-            use_container_width=True,
-            height=550,
-            hide_index=True,
-        )
-
-        st.download_button(
-            "📥 Download Webhook Events",
-            data=webhook_df.to_csv(
-                index=False
-            ),
-            file_name="webhook_events.csv",
-            mime="text/csv",
-            key="download_webhook_events",
-        )
-
-    else:
-
-        st.info(
-            "No Razorpay webhook events found."
-        )
-
-
-# ============================================================
-# TAB 7 — AUDIT
+# TAB 6 — APPROVALS
 # ============================================================
 
 with tabs[6]:
 
-    st.markdown(
-        '<div class="section-title">'
-        "📋 Audit Trail"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+    try:
 
-    if audit_events:
+        decisions_data = get_decisions_data(
+            payment_source
+        )
 
-        audit_rows = []
-
-        for event in audit_events:
-
-            audit_rows.append(
-                {
-                    "Timestamp":
-                        event.get(
-                            "timestamp"
-                        ),
-                    "Event":
-                        event.get(
-                            "event_type"
-                        ),
-                    "Payment":
-                        event.get(
-                            "payment_id"
-                        ),
-                    "Decision":
-                        event.get(
-                            "decision"
-                        ),
-                    "Action":
-                        event.get(
-                            "action"
-                        ),
-                    "Risk":
-                        event.get(
-                            "risk_level"
-                        ),
-                    "Approval":
-                        event.get(
-                            "approval_required"
-                        ),
-                    "Execution Mode":
-                        event.get(
-                            "execution_mode"
-                        ),
-                    "Status":
-                        event.get(
-                            "status"
-                        ),
-                }
+        decision_records = (
+            decisions_data.get(
+                "decisions",
+                [],
             )
-
-        audit_df = pd.DataFrame(
-            audit_rows
+            or []
         )
 
-        event_options = sorted(
-            audit_df["Event"]
-            .dropna()
-            .astype(str)
-            .unique()
-            .tolist()
+    except Exception as exc:
+
+        st.error(
+            "❌ Unable to load Approval data."
         )
 
-        status_options = sorted(
-            audit_df["Status"]
-            .dropna()
-            .astype(str)
-            .unique()
-            .tolist()
+        st.code(
+            str(exc)
         )
 
-        f1, f2 = st.columns(2)
+        st.stop()
 
-        with f1:
-            selected_events = st.multiselect(
-                "Event Type",
-                event_options,
-                default=[],
-                key="audit_event_filter",
+    # YOUR EXISTING APPROVAL UI CONTINUES HERE
+
+
+# ============================================================
+# TAB 7 — WEBHOOKS
+# ============================================================
+
+with tabs[7]:
+
+    try:
+
+        webhook_data = get_webhook_data()
+
+        webhook_events = (
+            webhook_data.get(
+                "events",
+                [],
             )
-
-        with f2:
-            selected_audit_status = st.multiselect(
-                "Status",
-                status_options,
-                default=[],
-                key="audit_status_filter",
-            )
-
-        filtered_audit = audit_df.copy()
-
-        if selected_events:
-
-            filtered_audit = (
-                filtered_audit[
-                    filtered_audit["Event"]
-                    .astype(str)
-                    .isin(
-                        selected_events
-                    )
-                ]
-            )
-
-        if selected_audit_status:
-
-            filtered_audit = (
-                filtered_audit[
-                    filtered_audit["Status"]
-                    .astype(str)
-                    .isin(
-                        selected_audit_status
-                    )
-                ]
-            )
-
-        st.dataframe(
-            filtered_audit,
-            use_container_width=True,
-            height=600,
-            hide_index=True,
+            or []
         )
 
-        st.download_button(
-            "📥 Download Audit Trail",
-            data=filtered_audit.to_csv(
-                index=False
-            ),
-            file_name="merchantops_audit.csv",
-            mime="text/csv",
-            key="download_audit",
+    except Exception as exc:
+
+        st.error(
+            "❌ Unable to load Webhook data."
         )
 
-    else:
-
-        st.info(
-            "No audit events available."
+        st.code(
+            str(exc)
         )
+
+        st.stop()
+
+    # YOUR EXISTING WEBHOOK UI CONTINUES HERE
+
+
+# ============================================================
+# TAB 8 — AUDIT
+# ============================================================
+
+with tabs[8]:
+
+    try:
+
+        audit_data = get_audit_data()
+
+        audit_events = (
+            audit_data.get(
+                "events",
+                [],
+            )
+            or []
+        )
+
+    except Exception as exc:
+
+        st.error(
+            "❌ Unable to load Audit data."
+        )
+
+        st.code(
+            str(exc)
+        )
+
+        st.stop()
+
+    # YOUR EXISTING AUDIT UI CONTINUES HERE
 
 
 # ============================================================

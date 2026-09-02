@@ -1,5 +1,6 @@
 from __future__ import annotations
 from backend.api.catalog import router as catalog_router
+from backend.api.buyer import router as buyer_router
 import hashlib
 import json
 import os
@@ -20,6 +21,7 @@ from backend.tools.payment_provider import PaymentProvider
 from backend.tools.webhook_processor import RazorpayWebhookProcessor
 from razorpay.client import RazorpayClient
 from razorpay.webhook import RazorpayWebhookVerifier
+
 
 
 # ============================================================
@@ -46,6 +48,10 @@ app = FastAPI(
 
 app.include_router(
     catalog_router
+)
+
+app.include_router(
+    buyer_router
 )
 
 
