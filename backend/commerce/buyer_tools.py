@@ -1,12 +1,19 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from backend.commerce.catalog import (
     get_product,
     get_related_products,
     list_products,
     search_products,
+)
+
+from backend.commerce.cart import (
+    add_item,
+    get_cart,
+    remove_item,
+    update_item_quantity,
 )
 
 
@@ -21,30 +28,18 @@ def search_catalog(
     in_stock_only: bool = True,
 ) -> Dict[str, Any]:
 
-    products = search_products(
-        query
-    )
+    products = search_products(query)
 
-    results: List[
-        Dict[str, Any]
-    ] = []
+    results: List[Dict[str, Any]] = []
 
     for product in products:
 
         price = float(
-            product.get(
-                "price",
-                0,
-            )
-            or 0
+            product.get("price", 0) or 0
         )
 
         stock = int(
-            product.get(
-                "stock",
-                0,
-            )
-            or 0
+            product.get("stock", 0) or 0
         )
 
         if (
@@ -77,9 +72,7 @@ def search_catalog(
         ):
             continue
 
-        results.append(
-            product
-        )
+        results.append(product)
 
     return {
         "query": query,
@@ -92,9 +85,7 @@ def get_catalog_product(
     product_id: str,
 ) -> Dict[str, Any]:
 
-    product = get_product(
-        product_id
-    )
+    product = get_product(product_id)
 
     if not product:
 
@@ -113,9 +104,7 @@ def get_product_recommendations(
     product_id: str,
 ) -> Dict[str, Any]:
 
-    product = get_product(
-        product_id
-    )
+    product = get_product(product_id)
 
     if not product:
 
@@ -142,18 +131,105 @@ def get_available_products() -> Dict[str, Any]:
 
     available = [
         product
-        for product
-        in products
+        for product in products
         if int(
-            product.get(
-                "stock",
-                0,
-            )
-            or 0
+            product.get("stock", 0) or 0
         ) > 0
     ]
 
     return {
         "count": len(available),
         "products": available,
+    }
+
+
+# ============================================================
+# BUYER CART TOOLS
+# ============================================================
+
+def add_product_to_cart(
+    cart_id: str,
+    product_id: str,
+    quantity: int = 1,
+    variant_id: Optional[str] = None,
+) -> Dict[str, Any]:
+
+    cart = add_item(
+        cart_id=cart_id,
+        product_id=product_id,
+        quantity=quantity,
+        variant_id=variant_id,
+    )
+
+    return {
+        "success": True,
+        "cart": cart,
+    }
+
+
+def get_buyer_cart(
+    cart_id: str,
+) -> Dict[str, Any]:
+
+    cart = get_cart(
+        cart_id
+    )
+
+    if cart is None:
+
+        return {
+            "success": False,
+            "cart": None,
+            "reason": "Cart not found.",
+        }
+
+    return {
+        "success": True,
+        "cart": cart,
+    }
+
+
+def update_product_in_cart(
+    cart_id: str,
+    product_id: str,
+    quantity: int,
+    variant_id: Optional[str] = None,
+) -> Dict[str, Any]:
+
+    cart = update_item_quantity(
+        cart_id=cart_id,
+        product_id=product_id,
+        quantity=quantity,
+        variant_id=variant_id,
+    )
+
+    return {
+        "success": True,
+        "cart": cart,
+    }
+
+
+def remove_product_from_cart(
+    cart_id: str,
+    product_id: str,
+    variant_id: Optional[str] = None,
+) -> Dict[str, Any]:
+
+    cart = remove_item(
+        cart_id=cart_id,
+        product_id=product_id,
+        variant_id=variant_id,
+    )
+
+    if cart is None:
+
+        return {
+            "success": False,
+            "cart": None,
+            "reason": "Cart not found.",
+        }
+
+    return {
+        "success": True,
+        "cart": cart,
     }

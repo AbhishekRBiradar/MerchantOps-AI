@@ -1107,7 +1107,7 @@ class PostgresDatabase:
                         stock = EXCLUDED.stock,
                         description = EXCLUDED.description,
                         features = EXCLUDED.features,
-                        tags = EXCLUDED.tags,
+                        tags = EXCLUDED.tags,   
                         variants = EXCLUDED.variants,
                         related_products =
                             EXCLUDED.related_products,
