@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from typing import Any, Dict, List, Optional
-
+from backend.agents.offer_agent import OfferAgent
 from backend.commerce.buyer_tools import (
     add_product_to_cart,
     get_buyer_cart,
@@ -29,6 +29,8 @@ class BuyerAgent:
 
     Cart operations use a caller-provided cart_id.
     """
+
+    offer_agent = OfferAgent()
 
     # ========================================================
     # INTENT DETECTION
@@ -875,7 +877,6 @@ class BuyerAgent:
         )
 
         if not product:
-
             return {
                 "success": False,
                 "intent": "ADD_TO_CART",
@@ -884,13 +885,12 @@ class BuyerAgent:
                     "you want to add."
                 ),
                 "cart": None,
+                "offers": [],
             }
 
-        variant_id = (
-            self._resolve_variant(
-                product,
-                message,
-            )
+        variant_id = self._resolve_variant(
+            product,
+            message,
         )
 
         quantity = self._extract_quantity(
@@ -899,23 +899,20 @@ class BuyerAgent:
         )
 
         try:
-
             result = add_product_to_cart(
                 cart_id=cart_id,
-                product_id=product[
-                    "product_id"
-                ],
+                product_id=product["product_id"],
                 quantity=quantity,
                 variant_id=variant_id,
             )
 
         except ValueError as exc:
-
             return {
                 "success": False,
                 "intent": "ADD_TO_CART",
                 "message": str(exc),
                 "cart": None,
+                "offers": [],
             }
 
         item_text = product.get(
@@ -936,54 +933,119 @@ class BuyerAgent:
             selected_variant = next(
                 (
                     variant
-                    for variant
-                    in variants
+                    for variant in variants
                     if variant.get(
                         "variant_id"
-                    )
-                    ==
-                    variant_id
+                    ) == variant_id
                 ),
                 None,
             )
 
             if selected_variant:
-
                 item_text += (
                     " ("
-                    +
-                    str(
+                    + str(
                         selected_variant.get(
                             "name",
                             "",
                         )
                     )
-                    +
-                    ")"
+                    + ")"
                 )
 
+        cart = result["cart"]
+
         total = float(
-            result[
-                "cart"
-            ].get(
+            cart.get(
                 "total",
                 0,
             )
             or 0
         )
 
-        return {
-            "success": True,
-            "intent": "ADD_TO_CART",
-            "message": (
-                f"Added {quantity} × "
-                f"{item_text} to your cart. "
+        # ----------------------------------------------------
+        # CART-AWARE OFFER RECOMMENDATIONS
+        # ----------------------------------------------------
+
+        offer_result = self.offer_agent.recommend(
+            product_id=product["product_id"],
+            cart_id=cart_id,
+            max_offers=3,
+        )
+
+        offers = (
+            offer_result.get(
+                "offers",
+                [],
+            )
+            or []
+        )
+
+        message_parts = [
+            (
+                f"Added {quantity} x "
+                f"{item_text} to your cart."
+            ),
+            (
                 f"Your current total is "
                 f"₹{total:,.2f}."
             ),
-            "cart": result[
-                "cart"
-            ],
+        ]
+
+        if offers:
+
+            cross_sells = [
+                offer
+                for offer in offers
+                if offer.get("type") == "CROSS_SELL"
+            ]
+
+            upsells = [
+                offer
+                for offer in offers
+                if offer.get("type") == "UPSELL"
+            ]
+
+            if cross_sells:
+
+                names = ", ".join(
+                    str(
+                        offer.get(
+                            "name",
+                            "Product",
+                        )
+                    )
+                    for offer in cross_sells
+                )
+
+                message_parts.append(
+                    f"You may also like {names}."
+                )
+
+            if upsells:
+
+                names = ", ".join(
+                    str(
+                        offer.get(
+                            "name",
+                            "Variant",
+                        )
+                    )
+                    for offer in upsells
+                )
+
+                message_parts.append(
+                    f"There is also an upgraded option: "
+                    f"{names}."
+                )
+
+        return {
+            "success": True,
+            "intent": "ADD_TO_CART",
+            "message": " ".join(message_parts),
+            "cart": cart,
+            "offers": offers,
+            "product": product,
         }
 
     # ========================================================

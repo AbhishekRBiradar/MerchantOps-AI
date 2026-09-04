@@ -57,8 +57,9 @@ def buyer_chat(
 
     cart_id = request.cart_id
 
-    # For cart operations, create a cart automatically
-    # when the client hasn't supplied one yet.
+    # --------------------------------------------------------
+    # Automatically create a buyer cart for cart operations.
+    # --------------------------------------------------------
 
     if not cart_id:
 
@@ -77,23 +78,48 @@ def buyer_chat(
                 "cart_id"
             ]
 
+    # --------------------------------------------------------
+    # Main Buyer Agent response
+    # --------------------------------------------------------
+
     result = agent.respond(
         request.message,
         cart_id=cart_id,
     )
 
+    # --------------------------------------------------------
+    # Always expose cart/session identifiers when available.
+    # --------------------------------------------------------
+
     if cart_id:
 
-        result["cart_id"] = cart_id
+        result[
+            "cart_id"
+        ] = cart_id
 
     if request.session_id:
 
-        result["session_id"] = (
-            request.session_id
-        )
+        result[
+            "session_id"
+        ] = request.session_id
+
+    # --------------------------------------------------------
+    # Consistent response shape for frontend.
+    # --------------------------------------------------------
+
+    if "offers" not in result:
+
+        result[
+            "offers"
+        ] = []
+
+    if "cart" not in result:
+
+        result[
+            "cart"
+        ] = None
 
     return result
-
 
 # ============================================================
 # SEARCH

@@ -22,7 +22,7 @@ from backend.tools.payment_provider import PaymentProvider
 from backend.tools.webhook_processor import RazorpayWebhookProcessor
 from razorpay.client import RazorpayClient
 from razorpay.webhook import RazorpayWebhookVerifier
-
+from backend.api.offers import router as offers_router
 
 
 # ============================================================
@@ -57,6 +57,10 @@ app.include_router(
 
 app.include_router(
     cart_router
+)
+
+app.include_router(
+    offers_router
 )
 
 # ============================================================
