@@ -23,6 +23,7 @@ from backend.tools.webhook_processor import RazorpayWebhookProcessor
 from razorpay.client import RazorpayClient
 from razorpay.webhook import RazorpayWebhookVerifier
 from backend.api.offers import router as offers_router
+from backend.commerce.cart import get_cart
 
 
 # ============================================================
@@ -112,6 +113,15 @@ class PaymentVerificationRequest(BaseModel):
     razorpay_order_id: str
     razorpay_payment_id: str
     razorpay_signature: str
+
+
+class BuyerCheckoutRequest(BaseModel):
+
+    customer_name: Optional[str] = None
+
+    customer_email: Optional[str] = None
+
+    customer_phone: Optional[str] = None
 
 
 class CreateOrderRequest(BaseModel):
@@ -1133,6 +1143,359 @@ def get_verified_payments() -> Dict[str, Any]:
 # ============================================================
 # CREATE RAZORPAY ORDER
 # ============================================================
+
+# ============================================================
+# BUYER CART CHECKOUT
+# ============================================================
+
+@app.post(
+    "/cart/{cart_id}/checkout"
+)
+def create_buyer_cart_checkout(
+    cart_id: str,
+    body: BuyerCheckoutRequest,
+) -> Dict[str, Any]:
+
+    try:
+
+        cart = get_cart(
+            cart_id
+        )
+
+        if cart is None:
+
+            raise HTTPException(
+                status_code=404,
+                detail="Cart not found.",
+            )
+
+        items = (
+            cart.get(
+                "items",
+                [],
+            )
+            or []
+        )
+
+        if not items:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot checkout an empty cart.",
+            )
+
+        customer_name = (
+            body.customer_name or ""
+        ).strip()
+
+        customer_email = (
+            body.customer_email or ""
+        ).strip()
+
+        customer_phone = (
+            body.customer_phone or ""
+        ).strip()
+
+        if not customer_name:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Customer name is required.",
+            )
+
+        if not customer_email:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Customer email is required.",
+            )
+
+        if "@" not in customer_email:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Please provide a valid email address.",
+            )
+
+        if not customer_phone:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Customer phone is required.",
+            )
+
+        # ----------------------------------------------------
+        # Use backend cart total as the authoritative amount
+        # ----------------------------------------------------
+
+        subtotal = float(
+            cart.get(
+                "subtotal",
+                0,
+            )
+            or 0
+        )
+
+        discount = float(
+            cart.get(
+                "discount",
+                0,
+            )
+            or 0
+        )
+
+        tax = float(
+            cart.get(
+                "tax",
+                0,
+            )
+            or 0
+        )
+
+        amount_rupees = float(
+            cart.get(
+                "total",
+                0,
+            )
+            or 0
+        )
+
+        if amount_rupees <= 0:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Cart total must be greater than zero.",
+            )
+
+        amount_paise = int(
+            round(
+                amount_rupees * 100
+            )
+        )
+
+        # ----------------------------------------------------
+        # Cart summary
+        # ----------------------------------------------------
+
+        total_quantity = sum(
+            int(
+                item.get(
+                    "quantity",
+                    0,
+                )
+                or 0
+            )
+            for item in items
+        )
+
+        product_name = (
+            str(
+                items[0].get(
+                    "product_name",
+                    "Product",
+                )
+            )
+            if len(items) == 1
+            else f"{len(items)} items"
+        )
+
+        description_lines = []
+
+        for item in items:
+
+            item_name = str(
+                item.get(
+                    "product_name",
+                    "Product",
+                )
+            )
+
+            variant_name = item.get(
+                "variant_name"
+            )
+
+            quantity = int(
+                item.get(
+                    "quantity",
+                    0,
+                )
+                or 0
+            )
+
+            line_total = float(
+                item.get(
+                    "line_total",
+                    0,
+                )
+                or 0
+            )
+
+            label = item_name
+
+            if variant_name:
+
+                label += (
+                    f" ({variant_name})"
+                )
+
+            description_lines.append(
+                f"{quantity} x {label} = "
+                f"₹{line_total:,.2f}"
+            )
+
+        description = (
+            "MerchantOps AI Buyer Cart\n"
+            + "\n".join(
+                description_lines
+            )
+        )
+
+        # ----------------------------------------------------
+        # Create Razorpay order
+        # ----------------------------------------------------
+
+        client = RazorpayClient()
+
+        order = client.create_order(
+            amount=amount_paise,
+            currency="INR",
+            receipt=(
+                "buyer_"
+                + order_receipt_id()
+            ),
+        )
+
+        razorpay_order_id = order["id"]
+
+        # ----------------------------------------------------
+        # Persist merchant order when PostgreSQL is configured
+        # ----------------------------------------------------
+
+        database_url = get_database_url()
+
+        merchant_order = None
+
+        if database_url:
+
+            database = PostgresDatabase(
+                database_url
+            )
+
+            database.initialize()
+
+            average_unit_price = (
+                subtotal / total_quantity
+                if total_quantity
+                else 0.0
+            )
+
+            merchant_order = (
+                database.create_merchant_order(
+                    order_id=razorpay_order_id,
+                    amount=amount_rupees,
+                    currency="INR",
+                    customer_name=customer_name,
+                    customer_email=customer_email,
+                    customer_phone=customer_phone,
+                    product_name=product_name,
+                    quantity=total_quantity,
+                    unit_price=round(
+                        average_unit_price,
+                        2,
+                    ),
+                    subtotal=subtotal,
+                    discount=discount,
+                    tax=tax,
+                    description=description,
+                    status="CREATED",
+                )
+            )
+
+        # ----------------------------------------------------
+        # Audit
+        # ----------------------------------------------------
+
+        audit_logger.log_event(
+            event_type="RAZORPAY_ORDER_CREATED",
+            action="CREATE_BUYER_CART_CHECKOUT",
+            status="CREATED",
+            details={
+                "order_id":
+                    razorpay_order_id,
+
+                "cart_id":
+                    cart_id,
+
+                "customer_name":
+                    customer_name,
+
+                "customer_email":
+                    customer_email,
+
+                "customer_phone":
+                    customer_phone,
+
+                "amount":
+                    amount_rupees,
+
+                "currency":
+                    "INR",
+
+                "items":
+                    items,
+            },
+        )
+
+        return {
+            "success":
+                True,
+
+            "cart_id":
+                cart_id,
+
+            "order_id":
+                razorpay_order_id,
+
+            "amount":
+                order["amount"],
+
+            "currency":
+                order["currency"],
+
+            "status":
+                order["status"],
+
+            "customer": {
+                "name":
+                    customer_name,
+
+                "email":
+                    customer_email,
+
+                "phone":
+                    customer_phone,
+            },
+
+            "cart":
+                cart,
+
+            "items":
+                items,
+
+            "merchant_order":
+                merchant_order,
+        }
+
+    except HTTPException:
+
+        raise
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(exc),
+        ) from exc
 
 @app.post(
     "/razorpay/create-order"

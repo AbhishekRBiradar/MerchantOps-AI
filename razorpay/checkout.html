@@ -10,7 +10,7 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>MerchantOps AI - Customer Checkout</title>
+    <title>MerchantOps AI - Checkout</title>
 
     <script
         src="https://checkout.razorpay.com/v1/checkout.js"
@@ -25,200 +25,412 @@
         body {
             margin: 0;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             padding: 24px;
+
             font-family:
                 Inter,
                 Arial,
                 Helvetica,
                 sans-serif;
+
             background:
                 linear-gradient(
                     135deg,
                     #0f172a,
                     #1e293b
                 );
-            color: #f8fafc;
+
+            color:
+                #f8fafc;
         }
 
         .container {
-            width: min(100%, 620px);
-            padding: 30px;
-            border-radius: 22px;
+            width:
+                min(
+                    100%,
+                    720px
+                );
+
+            margin:
+                0 auto;
+
+            padding:
+                30px;
+
+            border-radius:
+                22px;
+
             background:
-                rgba(15, 23, 42, 0.97);
+                rgba(
+                    15,
+                    23,
+                    42,
+                    0.97
+                );
+
             border:
                 1px solid
-                rgba(255, 255, 255, 0.10);
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.10
+                );
+
             box-shadow:
                 0 24px 70px
-                rgba(0, 0, 0, 0.35);
+                rgba(
+                    0,
+                    0,
+                    0,
+                    0.35
+                );
         }
 
         h1 {
-            margin: 0 0 8px;
-            font-size: 30px;
+            margin:
+                0 0 8px;
+
+            font-size:
+                30px;
         }
 
         .subtitle {
-            color: #cbd5e1;
-            line-height: 1.5;
-            margin-bottom: 22px;
+            color:
+                #cbd5e1;
+
+            line-height:
+                1.5;
+
+            margin-bottom:
+                22px;
         }
 
         .section {
-            margin-top: 18px;
-            padding: 18px;
-            border-radius: 14px;
+            margin-top:
+                18px;
+
+            padding:
+                18px;
+
+            border-radius:
+                14px;
+
             background:
-                rgba(255, 255, 255, 0.025);
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.025
+                );
+
             border:
                 1px solid
-                rgba(255, 255, 255, 0.08);
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.08
+                );
         }
 
         .section-title {
-            margin-bottom: 14px;
-            font-weight: 700;
-            font-size: 16px;
+            margin-bottom:
+                14px;
+
+            font-weight:
+                750;
+
+            font-size:
+                17px;
         }
 
         .row {
-            display: flex;
-            justify-content: space-between;
-            gap: 20px;
-            padding: 8px 0;
+            display:
+                flex;
+
+            justify-content:
+                space-between;
+
+            gap:
+                20px;
+
+            padding:
+                9px 0;
+
             border-bottom:
                 1px solid
-                rgba(255, 255, 255, 0.06);
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.06
+                );
         }
 
         .row:last-child {
-            border-bottom: 0;
+            border-bottom:
+                0;
         }
 
         .label {
-            color: #94a3b8;
+            color:
+                #94a3b8;
         }
 
         .value {
-            text-align: right;
-            font-weight: 600;
-            word-break: break-word;
+            text-align:
+                right;
+
+            font-weight:
+                650;
+
+            word-break:
+                break-word;
         }
 
         .amount {
-            font-size: 34px;
-            font-weight: 800;
-            color: #bfdbfe;
+            font-size:
+                34px;
+
+            font-weight:
+                850;
+
+            color:
+                #bfdbfe;
+
+            margin-top:
+                8px;
         }
 
-        .breakdown {
-            margin-top: 10px;
-        }
+        .item {
+            padding:
+                12px 0;
 
-        .total {
-            margin-top: 14px;
-            padding-top: 14px;
-            border-top:
+            border-bottom:
                 1px solid
-                rgba(255, 255, 255, 0.12);
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.06
+                );
         }
 
-        .locked {
-            margin-top: 14px;
-            padding: 11px 13px;
-            border-radius: 10px;
-            background:
-                rgba(59, 130, 246, 0.10);
-            color: #bfdbfe;
-            font-size: 13px;
-            line-height: 1.45;
+        .item:last-child {
+            border-bottom:
+                0;
         }
 
-        .environment {
-            margin-top: 12px;
-            padding: 8px 10px;
-            border-radius: 8px;
-            font-size: 12px;
-            color: #94a3b8;
+        .item-name {
+            font-weight:
+                750;
+        }
+
+        .item-meta {
+            margin-top:
+                4px;
+
+            color:
+                #94a3b8;
+
+            font-size:
+                14px;
+        }
+
+        label {
+            display:
+                block;
+
+            margin:
+                12px 0 6px;
+
+            color:
+                #cbd5e1;
+
+            font-size:
+                14px;
+
+            font-weight:
+                650;
+        }
+
+        input {
+            width:
+                100%;
+
+            padding:
+                12px 14px;
+
+            border-radius:
+                10px;
+
+            border:
+                1px solid
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.10
+                );
+
             background:
-                rgba(255, 255, 255, 0.03);
+                #111827;
+
+            color:
+                #f8fafc;
+
+            outline:
+                none;
+        }
+
+        input:focus {
+            border-color:
+                #818cf8;
         }
 
         button {
-            width: 100%;
-            margin-top: 20px;
-            padding: 15px 18px;
-            border: 0;
-            border-radius: 11px;
-            background: #2563eb;
-            color: white;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
+            width:
+                100%;
+
+            margin-top:
+                20px;
+
+            padding:
+                14px 18px;
+
+            border:
+                0;
+
+            border-radius:
+                12px;
+
+            background:
+                #4f46e5;
+
+            color:
+                #ffffff;
+
+            font-size:
+                16px;
+
+            font-weight:
+                800;
+
+            cursor:
+                pointer;
         }
 
         button:hover {
-            opacity: 0.92;
+            background:
+                #4338ca;
         }
 
         button:disabled {
-            opacity: 0.55;
-            cursor: not-allowed;
+            opacity:
+                0.55;
+
+            cursor:
+                not-allowed;
         }
 
         .status {
-            display: none;
-            margin-top: 18px;
-            padding: 15px;
-            border-radius: 12px;
-            line-height: 1.6;
-            white-space: pre-wrap;
-        }
+            margin-top:
+                18px;
 
-        .loading {
-            display: block;
+            padding:
+                14px;
+
+            border-radius:
+                12px;
+
+            white-space:
+                pre-line;
+
+            line-height:
+                1.5;
+
             background:
-                rgba(59, 130, 246, 0.12);
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.04
+                );
+
             border:
                 1px solid
-                rgba(96, 165, 250, 0.30);
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.08
+                );
         }
 
-        .success {
-            display: block;
+        .status.success {
+            border-color:
+                rgba(
+                    34,
+                    197,
+                    94,
+                    0.35
+                );
+
             background:
-                rgba(34, 197, 94, 0.12);
-            border:
-                1px solid
-                rgba(74, 222, 128, 0.30);
+                rgba(
+                    34,
+                    197,
+                    94,
+                    0.08
+                );
         }
 
-        .error {
-            display: block;
+        .status.error {
+            border-color:
+                rgba(
+                    239,
+                    68,
+                    68,
+                    0.35
+                );
+
             background:
-                rgba(239, 68, 68, 0.12);
-            border:
-                1px solid
-                rgba(248, 113, 113, 0.30);
+                rgba(
+                    239,
+                    68,
+                    68,
+                    0.08
+                );
         }
 
-        .pending {
-            display: block;
-            background:
-                rgba(234, 179, 8, 0.10);
-            border:
-                1px solid
-                rgba(250, 204, 21, 0.25);
+        .status.loading {
+            border-color:
+                rgba(
+                    59,
+                    130,
+                    246,
+                    0.30
+                );
         }
 
         .small {
-            margin-top: 18px;
-            color: #64748b;
-            font-size: 12px;
+            margin-top:
+                18px;
+
+            color:
+                #64748b;
+
+            font-size:
+                12px;
+
+            text-align:
+                center;
+        }
+
+        .hidden {
+            display:
+                none !important;
         }
 
     </style>
@@ -230,180 +442,71 @@
 
 <div class="container">
 
-    <h1>💳 MerchantOps AI</h1>
+    <h1>
+        💳 MerchantOps AI Checkout
+    </h1>
 
     <div class="subtitle">
-        Secure customer checkout.
-        The order and amount were created by the merchant.
+        Secure customer checkout powered by Razorpay Test Mode.
     </div>
 
 
     <!-- ======================================================
-         ORDER
+         ENVIRONMENT
+    ======================================================= -->
+
+    <div
+        id="environment"
+        class="status loading"
+    >
+        Loading checkout environment...
+    </div>
+
+
+    <!-- ======================================================
+         ORDER / CART
     ======================================================= -->
 
     <div class="section">
 
         <div class="section-title">
-            🛍️ Order Details
+            🛍️ Order Summary
         </div>
 
-
-        <div class="row">
-
-            <div class="label">
-                Order ID
-            </div>
-
-            <div
-                id="orderId"
-                class="value"
-            >
-                Loading...
-            </div>
-
-        </div>
-
-
-        <div class="row">
-
-            <div class="label">
-                Product
-            </div>
-
-            <div
-                id="product"
-                class="value"
-            >
-                Loading...
-            </div>
-
-        </div>
-
-
-        <div class="row">
-
-            <div class="label">
-                Description
-            </div>
-
-            <div
-                id="description"
-                class="value"
-            >
-                Loading...
-            </div>
-
-        </div>
-
-
-        <div class="row">
-
-            <div class="label">
-                Quantity
-            </div>
-
-            <div
-                id="quantity"
-                class="value"
-            >
-                Loading...
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- ======================================================
-         CUSTOMER
-    ======================================================= -->
-
-    <div class="section">
-
-        <div class="section-title">
-            👤 Customer
-        </div>
-
-
-        <div class="row">
-
-            <div class="label">
-                Name
-            </div>
-
-            <div
-                id="customerName"
-                class="value"
-            >
-                Loading...
-            </div>
-
-        </div>
-
-
-        <div class="row">
-
-            <div class="label">
-                Email
-            </div>
-
-            <div
-                id="customerEmail"
-                class="value"
-            >
-                Loading...
-            </div>
-
-        </div>
-
-
-        <div class="row">
-
-            <div class="label">
-                Phone
-            </div>
-
-            <div
-                id="customerPhone"
-                class="value"
-            >
-                Loading...
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- ======================================================
-         PRICE BREAKDOWN
-    ======================================================= -->
-
-    <div class="section">
-
-        <div class="section-title">
-            💰 Price Breakdown
-        </div>
-
-
-        <div class="breakdown">
+        <div
+            id="merchantOrderSection"
+            class="hidden"
+        >
 
             <div class="row">
 
                 <div class="label">
-                    Unit Price
+                    Order ID
                 </div>
 
                 <div
-                    id="unitPrice"
+                    id="orderId"
                     class="value"
                 >
-                    ₹0.00
+                    -
                 </div>
 
             </div>
 
+            <div class="row">
+
+                <div class="label">
+                    Product
+                </div>
+
+                <div
+                    id="product"
+                    class="value"
+                >
+                    -
+                </div>
+
+            </div>
 
             <div class="row">
 
@@ -412,14 +515,45 @@
                 </div>
 
                 <div
-                    id="breakdownQuantity"
+                    id="quantity"
                     class="value"
                 >
-                    1
+                    -
                 </div>
 
             </div>
 
+            <div class="row">
+
+                <div class="label">
+                    Description
+                </div>
+
+                <div
+                    id="description"
+                    class="value"
+                >
+                    -
+                </div>
+
+            </div>
+
+            <div
+                id="merchantAmount"
+                class="amount"
+            >
+                ₹0.00
+            </div>
+
+        </div>
+
+
+        <div
+            id="cartOrderSection"
+            class="hidden"
+        >
+
+            <div id="cartItems"></div>
 
             <div class="row">
 
@@ -428,14 +562,13 @@
                 </div>
 
                 <div
-                    id="subtotal"
+                    id="cartSubtotal"
                     class="value"
                 >
                     ₹0.00
                 </div>
 
             </div>
-
 
             <div class="row">
 
@@ -444,14 +577,13 @@
                 </div>
 
                 <div
-                    id="discount"
+                    id="cartDiscount"
                     class="value"
                 >
                     ₹0.00
                 </div>
 
             </div>
-
 
             <div class="row">
 
@@ -460,7 +592,7 @@
                 </div>
 
                 <div
-                    id="tax"
+                    id="cartTax"
                     class="value"
                 >
                     ₹0.00
@@ -468,31 +600,62 @@
 
             </div>
 
-
-            <div class="row total">
-
-                <div class="label">
-                    Final Amount
-                </div>
-
-                <div
-                    id="amount"
-                    class="amount"
-                >
-                    ₹0.00
-                </div>
-
+            <div
+                id="cartAmount"
+                class="amount"
+            >
+                ₹0.00
             </div>
 
         </div>
 
+    </div>
 
-        <div class="locked">
-            🔒 This amount is controlled by the
-            merchant-created server order.
-            Customers cannot edit the price from
-            this checkout page.
+
+    <!-- ======================================================
+         CUSTOMER DETAILS
+    ======================================================= -->
+
+    <div
+        id="customerSection"
+        class="section"
+    >
+
+        <div class="section-title">
+            👤 Customer Details
         </div>
+
+        <label for="customerName">
+            Full Name
+        </label>
+
+        <input
+            id="customerName"
+            type="text"
+            placeholder="Rahul Sharma"
+        >
+
+
+        <label for="customerEmail">
+            Email
+        </label>
+
+        <input
+            id="customerEmail"
+            type="email"
+            placeholder="rahul@example.com"
+        >
+
+
+        <label for="customerPhone">
+            Phone
+        </label>
+
+        <input
+            id="customerPhone"
+            type="tel"
+            placeholder="9876543210"
+        >
 
     </div>
 
@@ -505,7 +668,7 @@
         id="payButton"
         disabled
     >
-        Loading Order...
+        Loading Checkout...
     </button>
 
 
@@ -516,14 +679,8 @@
     <div
         id="status"
         class="status"
-    ></div>
-
-
-    <div
-        id="environment"
-        class="environment"
     >
-        Detecting payment environment...
+        Initializing...
     </div>
 
 
@@ -543,10 +700,8 @@
     const LOCAL_API_URL =
         "http://127.0.0.1:8000";
 
-
     const PRODUCTION_API_URL =
         "https://merchantops-ai-api.onrender.com";
-
 
     const RAZORPAY_KEY_ID =
         "rzp_test_TV7feaaiM2EsjP";
@@ -556,7 +711,20 @@
     // STATE
     // ========================================================
 
-    let merchantOrder = null;
+    let checkoutMode =
+        null;
+
+    let merchantOrder =
+        null;
+
+    let buyerCart =
+        null;
+
+    let buyerCartId =
+        "";
+
+    let currentApiUrl =
+        LOCAL_API_URL;
 
 
     // ========================================================
@@ -568,183 +736,34 @@
             "payButton"
         );
 
-
     const statusBox =
         document.getElementById(
             "status"
         );
-
 
     const environmentBox =
         document.getElementById(
             "environment"
         );
 
-
-    // ========================================================
-    // QUERY PARAMETERS
-    // ========================================================
-
-    function getQueryParams() {
-
-        return new URLSearchParams(
-            window.location.search
+    const merchantOrderSection =
+        document.getElementById(
+            "merchantOrderSection"
         );
 
-    }
-
-
-    // ========================================================
-    // ORDER ID
-    // ========================================================
-
-    function getOrderId() {
-
-        const params =
-            getQueryParams();
-
-
-        return (
-            params.get(
-                "order_id"
-            )
-            ||
-            ""
-        ).trim();
-
-    }
-
-
-    // ========================================================
-    // API MODE
-    // ========================================================
-
-    function getApiMode() {
-
-        const params =
-            getQueryParams();
-
-
-        const requestedMode =
-            (
-                params.get(
-                    "api"
-                )
-                ||
-                ""
-            )
-            .trim()
-            .toLowerCase();
-
-
-        /*
-         * Explicit mode always wins.
-         *
-         * ?api=production
-         *      -> Render
-         *
-         * ?api=local
-         *      -> localhost
-         */
-
-
-        if (
-            requestedMode ===
-            "production"
-        ) {
-
-            return "production";
-
-        }
-
-
-        if (
-            requestedMode ===
-            "local"
-        ) {
-
-            return "local";
-
-        }
-
-
-        /*
-         * Automatic fallback.
-         *
-         * A deployed checkout page uses production.
-         *
-         * A local checkout page uses local.
-         */
-
-        if (
-            window.location.hostname ===
-                "127.0.0.1"
-            ||
-            window.location.hostname ===
-                "localhost"
-        ) {
-
-            return "local";
-
-        }
-
-
-        return "production";
-
-    }
-
-
-    // ========================================================
-    // API URL
-    // ========================================================
-
-    function getApiUrl() {
-
-        const mode =
-            getApiMode();
-
-
-        return (
-            mode === "production"
-            ?
-            PRODUCTION_API_URL
-            :
-            LOCAL_API_URL
+    const cartOrderSection =
+        document.getElementById(
+            "cartOrderSection"
         );
 
-    }
+    const customerSection =
+        document.getElementById(
+            "customerSection"
+        );
 
 
     // ========================================================
-    // ENVIRONMENT LABEL
-    // ========================================================
-
-    function renderEnvironment() {
-
-        const mode =
-            getApiMode();
-
-
-        if (
-            mode === "production"
-        ) {
-
-            environmentBox.textContent =
-                "🌐 Production API • Render + PostgreSQL";
-
-        }
-        else {
-
-            environmentBox.textContent =
-                "💻 Local API • 127.0.0.1 + Local Persistence";
-
-        }
-
-    }
-
-
-    // ========================================================
-    // STATUS
+    // HELPERS
     // ========================================================
 
     function setStatus(
@@ -753,17 +772,15 @@
     ) {
 
         statusBox.className =
-            "status " + type;
+            "status " + (
+                type || ""
+            );
 
         statusBox.textContent =
             message;
 
     }
 
-
-    // ========================================================
-    // FORMAT INR
-    // ========================================================
 
     function formatINR(
         value
@@ -773,7 +790,6 @@
             Number(
                 value || 0
             );
-
 
         return (
             "₹"
@@ -793,41 +809,115 @@
     }
 
 
+    function getParams() {
+
+        return new URLSearchParams(
+            window.location.search
+        );
+
+    }
+
+
+    function getApiUrl() {
+
+        const params =
+            getParams();
+
+        const mode =
+            (
+                params.get(
+                    "api"
+                )
+                ||
+                ""
+            )
+            .trim()
+            .toLowerCase();
+
+        if (
+            mode ===
+            "production"
+        ) {
+
+            return PRODUCTION_API_URL;
+
+        }
+
+        return LOCAL_API_URL;
+
+    }
+
+
+    function getOrderId() {
+
+        return (
+            getParams().get(
+                "order_id"
+            )
+            ||
+            ""
+        ).trim();
+
+    }
+
+
+    function getCartId() {
+
+        return (
+            getParams().get(
+                "cart_id"
+            )
+            ||
+            ""
+        ).trim();
+
+    }
+
+
+    function renderEnvironment() {
+
+        currentApiUrl =
+            getApiUrl();
+
+        const isProduction =
+            currentApiUrl ===
+            PRODUCTION_API_URL;
+
+        environmentBox.textContent =
+            isProduction
+            ?
+            "🌐 Production API • Render"
+            :
+            "💻 Local API • 127.0.0.1";
+
+    }
+
+
     // ========================================================
-    // LOAD MERCHANT ORDER
+    // LOAD BUYER CART
     // ========================================================
 
-    async function loadOrder() {
+    async function loadBuyerCart() {
 
-        const orderId =
-            getOrderId();
+        buyerCartId =
+            getCartId();
 
-
-        if (!orderId) {
+        if (!buyerCartId) {
 
             throw new Error(
-                "No merchant order ID was supplied."
+                "No buyer cart ID was supplied."
             );
 
         }
 
-
-        const apiUrl =
-            getApiUrl();
-
-
-        renderEnvironment();
-
-
         setStatus(
-            "Loading merchant order...",
+            "Loading your cart...",
             "loading"
         );
 
-
         const response =
             await fetch(
-                `${apiUrl}/merchant/orders/${encodeURIComponent(orderId)}`,
+                `${currentApiUrl}/cart/${encodeURIComponent(buyerCartId)}`,
                 {
                     method:
                         "GET",
@@ -839,9 +929,241 @@
                 }
             );
 
+        let data;
 
-        let data = null;
+        try {
 
+            data =
+                await response.json();
+
+        }
+        catch (
+            error
+        ) {
+
+            throw new Error(
+                "Cart service returned an invalid response."
+            );
+
+        }
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.detail
+                ||
+                `Unable to load cart. HTTP ${response.status}`
+            );
+
+        }
+
+        buyerCart =
+            data.cart;
+
+        if (!buyerCart) {
+
+            throw new Error(
+                "Buyer cart was not found."
+            );
+
+        }
+
+        const items =
+            buyerCart.items
+            ||
+            [];
+
+        if (!items.length) {
+
+            throw new Error(
+                "Your cart is empty."
+            );
+
+        }
+
+        renderBuyerCart();
+
+        customerSection.classList.remove(
+            "hidden"
+        );
+
+        payButton.disabled =
+            false;
+
+        payButton.textContent =
+            `💳 Pay ${formatINR(
+                buyerCart.total
+            )}`;
+
+        setStatus(
+            "✅ Cart loaded. Enter your details and continue.",
+            "loading"
+        );
+
+    }
+
+
+    // ========================================================
+    // RENDER BUYER CART
+    // ========================================================
+
+    function renderBuyerCart() {
+
+        merchantOrderSection.classList.add(
+            "hidden"
+        );
+
+        cartOrderSection.classList.remove(
+            "hidden"
+        );
+
+        const cartItems =
+            document.getElementById(
+                "cartItems"
+            );
+
+        cartItems.innerHTML =
+            "";
+
+        for (
+            const item
+            of (
+                buyerCart.items
+                ||
+                []
+            )
+        ) {
+
+            const wrapper =
+                document.createElement(
+                    "div"
+                );
+
+            wrapper.className =
+                "item";
+
+            const name =
+                document.createElement(
+                    "div"
+                );
+
+            name.className =
+                "item-name";
+
+            let itemName =
+                String(
+                    item.product_name
+                    ||
+                    "Product"
+                );
+
+            if (
+                item.variant_name
+            ) {
+
+                itemName +=
+                    ` (${item.variant_name})`;
+
+            }
+
+            name.textContent =
+                `${item.quantity} × ${itemName}`;
+
+            const meta =
+                document.createElement(
+                    "div"
+                );
+
+            meta.className =
+                "item-meta";
+
+            meta.textContent =
+                `${formatINR(item.unit_price)} each • `
+                +
+                `${formatINR(item.line_total)}`;
+
+            wrapper.appendChild(
+                name
+            );
+
+            wrapper.appendChild(
+                meta
+            );
+
+            cartItems.appendChild(
+                wrapper
+            );
+
+        }
+
+        document.getElementById(
+            "cartSubtotal"
+        ).textContent =
+            formatINR(
+                buyerCart.subtotal
+            );
+
+        document.getElementById(
+            "cartDiscount"
+        ).textContent =
+            formatINR(
+                buyerCart.discount
+            );
+
+        document.getElementById(
+            "cartTax"
+        ).textContent =
+            formatINR(
+                buyerCart.tax
+            );
+
+        document.getElementById(
+            "cartAmount"
+        ).textContent =
+            formatINR(
+                buyerCart.total
+            );
+
+    }
+
+
+    // ========================================================
+    // LOAD MERCHANT ORDER
+    // ========================================================
+
+    async function loadMerchantOrder() {
+
+        const orderId =
+            getOrderId();
+
+        if (!orderId) {
+
+            throw new Error(
+                "No merchant order ID was supplied."
+            );
+
+        }
+
+        setStatus(
+            "Loading merchant order...",
+            "loading"
+        );
+
+        const response =
+            await fetch(
+                `${currentApiUrl}/merchant/orders/${encodeURIComponent(orderId)}`,
+                {
+                    method:
+                        "GET",
+
+                    headers: {
+                        "Accept":
+                            "application/json"
+                    }
+                }
+            );
+
+        let data;
 
         try {
 
@@ -859,7 +1181,6 @@
 
         }
 
-
         if (!response.ok) {
 
             throw new Error(
@@ -870,8 +1191,10 @@
 
         }
 
+        merchantOrder =
+            data.order;
 
-        if (!data.order) {
+        if (!merchantOrder) {
 
             throw new Error(
                 "Merchant order was not found."
@@ -879,263 +1202,175 @@
 
         }
 
+        renderMerchantOrder();
 
-        merchantOrder =
-            data.order;
-
-
-        renderOrder(
-            merchantOrder
+        customerSection.classList.add(
+            "hidden"
         );
-
-
-        const status =
-            String(
-                merchantOrder.status
-                ||
-                "CREATED"
-            ).toUpperCase();
-
-
-        if (
-            status ===
-                "VERIFIED"
-            ||
-            status ===
-                "CAPTURED"
-        ) {
-
-            setStatus(
-                "✅ This order has already been paid.",
-                "success"
-            );
-
-
-            payButton.disabled =
-                true;
-
-
-            payButton.textContent =
-                "Payment Already Completed";
-
-
-            return;
-
-        }
-
-
-        if (
-            status ===
-            "FAILED"
-        ) {
-
-            setStatus(
-                "❌ This order is marked as failed.",
-                "error"
-            );
-
-
-            payButton.disabled =
-                true;
-
-
-            payButton.textContent =
-                "Payment Unavailable";
-
-
-            return;
-
-        }
-
-
-        setStatus(
-            "✅ Order loaded. Amount is locked by the merchant.",
-            "loading"
-        );
-
 
         payButton.disabled =
             false;
-
 
         payButton.textContent =
             `💳 Pay ${formatINR(
                 merchantOrder.amount
             )}`;
 
+        setStatus(
+            "✅ Order loaded. Amount is locked by the merchant.",
+            "loading"
+        );
+
     }
 
 
     // ========================================================
-    // RENDER ORDER
+    // RENDER MERCHANT ORDER
     // ========================================================
 
-    function renderOrder(
-        order
-    ) {
+    function renderMerchantOrder() {
+
+        cartOrderSection.classList.add(
+            "hidden"
+        );
+
+        merchantOrderSection.classList.remove(
+            "hidden"
+        );
 
         document.getElementById(
             "orderId"
         ).textContent =
-            order.order_id
+            merchantOrder.order_id
             ||
             "-";
-
 
         document.getElementById(
             "product"
         ).textContent =
-            order.product_name
+            merchantOrder.product_name
             ||
-            order.description
-            ||
-            "-";
-
-
-        document.getElementById(
-            "description"
-        ).textContent =
-            order.description
+            merchantOrder.description
             ||
             "-";
-
-
-        const quantity =
-            Number(
-                order.quantity
-                ||
-                1
-            );
-
 
         document.getElementById(
             "quantity"
         ).textContent =
-            quantity;
-
-
-        document.getElementById(
-            "breakdownQuantity"
-        ).textContent =
-            quantity;
-
+            merchantOrder.quantity
+            ||
+            1;
 
         document.getElementById(
-            "customerName"
+            "description"
         ).textContent =
-            order.customer_name
+            merchantOrder.description
             ||
             "-";
 
-
         document.getElementById(
-            "customerEmail"
-        ).textContent =
-            order.customer_email
-            ||
-            "-";
-
-
-        document.getElementById(
-            "customerPhone"
-        ).textContent =
-            order.customer_phone
-            ||
-            "-";
-
-
-        document.getElementById(
-            "unitPrice"
+            "merchantAmount"
         ).textContent =
             formatINR(
-                order.unit_price
-            );
-
-
-        document.getElementById(
-            "subtotal"
-        ).textContent =
-            formatINR(
-                order.subtotal
-            );
-
-
-        document.getElementById(
-            "discount"
-        ).textContent =
-            formatINR(
-                order.discount
-            );
-
-
-        document.getElementById(
-            "tax"
-        ).textContent =
-            formatINR(
-                order.tax
-            );
-
-
-        document.getElementById(
-            "amount"
-        ).textContent =
-            formatINR(
-                order.amount
+                merchantOrder.amount
             );
 
     }
 
 
     // ========================================================
-    // VERIFY PAYMENT
+    // CREATE BUYER CART RAZORPAY ORDER
     // ========================================================
 
-    async function verifyPayment(
-        paymentResponse
-    ) {
+    async function createBuyerCheckoutOrder() {
 
-        const apiUrl =
-            getApiUrl();
+        if (!buyerCartId) {
 
+            throw new Error(
+                "Buyer cart ID is missing."
+            );
+
+        }
+
+        const customerName =
+            document.getElementById(
+                "customerName"
+            ).value.trim();
+
+        const customerEmail =
+            document.getElementById(
+                "customerEmail"
+            ).value.trim();
+
+        const customerPhone =
+            document.getElementById(
+                "customerPhone"
+            ).value.trim();
+
+        if (!customerName) {
+
+            throw new Error(
+                "Customer name is required."
+            );
+
+        }
+
+        if (!customerEmail) {
+
+            throw new Error(
+                "Customer email is required."
+            );
+
+        }
+
+        if (!customerEmail.includes("@")) {
+
+            throw new Error(
+                "Please enter a valid email address."
+            );
+
+        }
+
+        if (!customerPhone) {
+
+            throw new Error(
+                "Customer phone is required."
+            );
+
+        }
 
         const response =
             await fetch(
-                `${apiUrl}/razorpay/verify-payment`,
+                `${currentApiUrl}/cart/${encodeURIComponent(buyerCartId)}/checkout`,
                 {
-
                     method:
                         "POST",
 
                     headers: {
-
                         "Content-Type":
-                            "application/json"
+                            "application/json",
 
+                        "Accept":
+                            "application/json"
                     },
 
                     body:
-                        JSON.stringify({
+                        JSON.stringify(
+                            {
+                                customer_name:
+                                    customerName,
 
-                            razorpay_order_id:
-                                paymentResponse
-                                .razorpay_order_id,
+                                customer_email:
+                                    customerEmail,
 
-                            razorpay_payment_id:
-                                paymentResponse
-                                .razorpay_payment_id,
-
-                            razorpay_signature:
-                                paymentResponse
-                                .razorpay_signature
-
-                        })
-
+                                customer_phone:
+                                    customerPhone
+                            }
+                        )
                 }
             );
 
-
-        let data = null;
-
+        let data;
 
         try {
 
@@ -1148,22 +1383,20 @@
         ) {
 
             throw new Error(
-                "Payment verification returned an invalid response."
+                "Checkout service returned an invalid response."
             );
 
         }
-
 
         if (!response.ok) {
 
             throw new Error(
                 data.detail
                 ||
-                `Payment verification failed. HTTP ${response.status}`
+                `Unable to create checkout order. HTTP ${response.status}`
             );
 
         }
-
 
         return data;
 
@@ -1171,100 +1404,82 @@
 
 
     // ========================================================
-    // PAYMENT FAILURE MESSAGE
+    // VERIFY PAYMENT
     // ========================================================
 
-    function failureMessage(
-        response
+    async function verifyPayment(
+        paymentResponse
     ) {
 
-        const error =
-            response
-            &&
-            response.error
-            ?
-            response.error
-            :
-            {};
+        const response =
+            await fetch(
+                `${currentApiUrl}/razorpay/verify-payment`,
+                {
+                    method:
+                        "POST",
 
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
 
-        return (
-            error.description
-            ||
-            error.reason
-            ||
-            error.code
-            ||
-            "Payment failed."
-        );
+                    body:
+                        JSON.stringify(
+                            {
+                                razorpay_order_id:
+                                    paymentResponse.razorpay_order_id,
+
+                                razorpay_payment_id:
+                                    paymentResponse.razorpay_payment_id,
+
+                                razorpay_signature:
+                                    paymentResponse.razorpay_signature
+                            }
+                        )
+                }
+            );
+
+        let data;
+
+        try {
+
+            data =
+                await response.json();
+
+        }
+        catch (
+            error
+        ) {
+
+            throw new Error(
+                "Payment verification service returned an invalid response."
+            );
+
+        }
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.detail
+                ||
+                "Payment verification request failed."
+            );
+
+        }
+
+        return data;
 
     }
 
 
     // ========================================================
-    // START PAYMENT
+    // OPEN RAZORPAY
     // ========================================================
 
-    function startPayment() {
-
-        if (!merchantOrder) {
-
-            setStatus(
-                "❌ Merchant order is not loaded.",
-                "error"
-            );
-
-            return;
-
-        }
-
-
-        const orderId =
-            merchantOrder.order_id;
-
-
-        const amount =
-            Number(
-                merchantOrder.amount
-                ||
-                0
-            );
-
-
-        if (
-            !orderId
-            ||
-            amount <= 0
-        ) {
-
-            setStatus(
-                "❌ Invalid merchant order.",
-                "error"
-            );
-
-            return;
-
-        }
-
-
-        payButton.disabled =
-            true;
-
-
-        setStatus(
-            "Opening Razorpay Checkout...",
-            "loading"
-        );
-
-
-        /*
-         * IMPORTANT:
-         *
-         * The checkout page NEVER creates another Razorpay order.
-         *
-         * It uses the exact order created by the merchant.
-         */
-
+    function openRazorpay(
+        order,
+        customer
+    ) {
 
         const options = {
 
@@ -1272,12 +1487,10 @@
                 RAZORPAY_KEY_ID,
 
             amount:
-                Math.round(
-                    amount * 100
-                ),
+                order.amount,
 
             currency:
-                merchantOrder.currency
+                order.currency
                 ||
                 "INR",
 
@@ -1285,52 +1498,53 @@
                 "MerchantOps AI",
 
             description:
-                merchantOrder.description
-                ||
-                merchantOrder.product_name
-                ||
-                "Merchant Payment",
+                checkoutMode === "cart"
+                ?
+                "MerchantOps AI Buyer Cart"
+                :
+                (
+                    merchantOrder.description
+                    ||
+                    merchantOrder.product_name
+                    ||
+                    "Merchant Payment"
+                ),
 
             order_id:
-                orderId,
-
+                order.order_id,
 
             prefill: {
 
                 name:
-                    merchantOrder.customer_name
+                    customer.name
                     ||
                     "",
 
                 email:
-                    merchantOrder.customer_email
+                    customer.email
                     ||
                     "",
 
                 contact:
-                    merchantOrder.customer_phone
+                    customer.phone
                     ||
                     ""
 
             },
 
-
             notes: {
 
-                merchant_order_id:
-                    orderId,
+                source:
+                    checkoutMode === "cart"
+                    ?
+                    "merchantops_buyer_ai"
+                    :
+                    "merchantops_ai",
 
-                product_name:
-                    merchantOrder.product_name
+                cart_id:
+                    buyerCartId
                     ||
-                    "",
-
-                quantity:
-                    String(
-                        merchantOrder.quantity
-                        ||
-                        1
-                    )
+                    ""
 
             },
 
@@ -1341,27 +1555,16 @@
                 ) {
 
                     console.log(
-                        "Razorpay response:",
+                        "Razorpay success:",
                         razorpayResponse
                     );
-
 
                     setStatus(
-
-                        "🟡 Payment received.\n\n"
-                        +
-                        "Payment ID: "
-                        +
-                        razorpayResponse
-                        .razorpay_payment_id
-                        +
-                        "\n\n"
+                        "✅ Payment received.\n\n"
                         +
                         "Verifying payment with MerchantOps AI...",
-
                         "loading"
                     );
-
 
                     try {
 
@@ -1369,7 +1572,6 @@
                             await verifyPayment(
                                 razorpayResponse
                             );
-
 
                         if (
                             verification.verified
@@ -1385,68 +1587,37 @@
 
                         }
 
-
                         const payment =
                             verification.payment
                             ||
                             {};
 
-
                         setStatus(
-
-                            "🟢 PAYMENT SUCCESSFUL\n\n"
-
+                            "✅ PAYMENT VERIFIED\n\n"
                             +
-                            "Customer: "
-                            +
-                            (
-                                merchantOrder
-                                .customer_name
-                                ||
-                                "-"
-                            )
-
-                            +
-                            "\nProduct: "
-                            +
-                            (
-                                merchantOrder
-                                .product_name
-                                ||
-                                merchantOrder
-                                .description
-                                ||
-                                "-"
-                            )
-
-                            +
-                            "\nAmount: "
-                            +
-                            formatINR(
-                                payment.amount
-                                ||
-                                amount
-                            )
-
-                            +
-                            "\nPayment ID: "
+                            "Payment ID: "
                             +
                             (
                                 payment.payment_id
                                 ||
-                                razorpayResponse
-                                .razorpay_payment_id
+                                razorpayResponse.razorpay_payment_id
                             )
-
                             +
                             "\nOrder ID: "
                             +
                             (
                                 payment.order_id
                                 ||
-                                orderId
+                                razorpayResponse.razorpay_order_id
                             )
-
+                            +
+                            "\nAmount: "
+                            +
+                            formatINR(
+                                payment.amount
+                                ||
+                                order.amount / 100
+                            )
                             +
                             "\nPayment Status: "
                             +
@@ -1455,7 +1626,6 @@
                                 ||
                                 "-"
                             )
-
                             +
                             "\nCaptured: "
                             +
@@ -1466,10 +1636,8 @@
                                 :
                                 "No"
                             )
-
                             +
                             "\nVerification: VERIFIED"
-
                             +
                             "\nAudit Recorded: "
                             +
@@ -1484,10 +1652,11 @@
                             "success"
                         );
 
+                        payButton.disabled =
+                            true;
 
                         payButton.textContent =
                             "✅ Payment Completed";
-
 
                     }
                     catch (
@@ -1499,29 +1668,14 @@
                             verificationError
                         );
 
-
                         setStatus(
-
-                            "🟡 PAYMENT RECEIVED\n\n"
+                            "❌ Payment succeeded, "
                             +
-                            "Razorpay reported a payment, "
-                            +
-                            "but MerchantOps verification "
-                            +
-                            "could not be completed.\n\n"
-                            +
-                            "Payment ID: "
-                            +
-                            razorpayResponse
-                            .razorpay_payment_id
-                            +
-                            "\n\n"
+                            "but MerchantOps verification failed.\n\n"
                             +
                             verificationError.message,
-
-                            "pending"
+                            "error"
                         );
-
 
                         payButton.disabled =
                             false;
@@ -1539,10 +1693,9 @@
                         payButton.disabled =
                             false;
 
-
                         setStatus(
-                            "Checkout closed. No final payment confirmation was received.",
-                            "pending"
+                            "Checkout closed.",
+                            "loading"
                         );
 
                     }
@@ -1569,43 +1722,26 @@
                     response.error
                 );
 
-
                 setStatus(
-
-                    "🔴 PAYMENT FAILED\n\n"
-
+                    "❌ PAYMENT FAILED\n\n"
                     +
-                    "Customer: "
+                    "Reason: "
                     +
                     (
-                        merchantOrder
-                        .customer_name
+                        response.error?.description
+                        ||
+                        "Payment failed."
+                    )
+                    +
+                    "\nCode: "
+                    +
+                    (
+                        response.error?.code
                         ||
                         "-"
-                    )
-
-                    +
-                    "\nAmount: "
-                    +
-                    formatINR(
-                        amount
-                    )
-
-                    +
-                    "\nOrder ID: "
-                    +
-                    orderId
-
-                    +
-                    "\n\nFailure Reason: "
-                    +
-                    failureMessage(
-                        response
                     ),
-
                     "error"
                 );
-
 
                 payButton.disabled =
                     false;
@@ -1620,6 +1756,144 @@
 
 
     // ========================================================
+    // START PAYMENT
+    // ========================================================
+
+    async function startPayment() {
+
+        try {
+
+            payButton.disabled =
+                true;
+
+            setStatus(
+                "Preparing secure payment...",
+                "loading"
+            );
+
+            let order;
+
+            let customer;
+
+
+            // ------------------------------------------------
+            // BUYER AI CART
+            // ------------------------------------------------
+
+            if (
+                checkoutMode ===
+                "cart"
+            ) {
+
+                order =
+                    await createBuyerCheckoutOrder();
+
+                customer = {
+
+                    name:
+                        document.getElementById(
+                            "customerName"
+                        ).value.trim(),
+
+                    email:
+                        document.getElementById(
+                            "customerEmail"
+                        ).value.trim(),
+
+                    phone:
+                        document.getElementById(
+                            "customerPhone"
+                        ).value.trim()
+
+                };
+
+            }
+
+
+            // ------------------------------------------------
+            // MERCHANT ORDER
+            // ------------------------------------------------
+
+            else {
+
+                order = {
+
+                    order_id:
+                        merchantOrder.order_id,
+
+                    amount:
+                        Math.round(
+                            Number(
+                                merchantOrder.amount
+                            ) * 100
+                        ),
+
+                    currency:
+                        merchantOrder.currency
+                        ||
+                        "INR"
+
+                };
+
+                customer = {
+
+                    name:
+                        merchantOrder.customer_name
+                        ||
+                        "",
+
+                    email:
+                        merchantOrder.customer_email
+                        ||
+                        "",
+
+                    phone:
+                        merchantOrder.customer_phone
+                        ||
+                        ""
+
+                };
+
+            }
+
+
+            setStatus(
+                "Opening Razorpay Checkout...",
+                "loading"
+            );
+
+
+            openRazorpay(
+                order,
+                customer
+            );
+
+        }
+        catch (
+            error
+        ) {
+
+            console.error(
+                "Checkout error:",
+                error
+            );
+
+            setStatus(
+                "❌ "
+                +
+                error.message,
+                "error"
+            );
+
+            payButton.disabled =
+                false;
+
+        }
+
+    }
+
+
+    // ========================================================
     // INITIALIZE
     // ========================================================
 
@@ -1627,12 +1901,46 @@
         "DOMContentLoaded",
         async function () {
 
-            renderEnvironment();
-
-
             try {
 
-                await loadOrder();
+                renderEnvironment();
+
+                const orderId =
+                    getOrderId();
+
+                const cartId =
+                    getCartId();
+
+
+                if (
+                    cartId
+                ) {
+
+                    checkoutMode =
+                        "cart";
+
+                    await loadBuyerCart();
+
+                }
+
+                else if (
+                    orderId
+                ) {
+
+                    checkoutMode =
+                        "merchant";
+
+                    await loadMerchantOrder();
+
+                }
+
+                else {
+
+                    throw new Error(
+                        "No cart_id or order_id was supplied."
+                    );
+
+                }
 
             }
             catch (
@@ -1640,10 +1948,9 @@
             ) {
 
                 console.error(
-                    "Order loading error:",
+                    "Checkout initialization error:",
                     error
                 );
-
 
                 setStatus(
                     "❌ "
@@ -1652,9 +1959,11 @@
                     "error"
                 );
 
-
                 payButton.disabled =
                     true;
+
+                payButton.textContent =
+                    "Checkout Unavailable";
 
             }
 

@@ -784,14 +784,32 @@ class BuyerAgent:
             "ten": 10,
         }
 
+    # --------------------------------------------------------
+    # Explicit quantity expressions only.
+    #
+    # IMPORTANT:
+    # Do NOT interpret digits inside product names such as
+    # "15.6-inch Laptop Sleeve" as quantities.
+    # --------------------------------------------------------
+
         patterns = [
-            r"quantity\s*(?:to|=)?\s*(\d+)",
-            r"qty\s*(?:to|=)?\s*(\d+)",
-            r"make it\s+(\d+)",
-            r"change(?:\s+it)?\s+to\s+(\d+)",
-            r"set\s+(?:it\s+)?to\s+(\d+)",
-            r"add\s+(\d+)",
-            r"(\d+)\s*(?:units|unit|items|item)",
+
+        r"\bquantity\s*(?:to|=)?\s*(\d+)\b",
+
+        r"\bqty\s*(?:to|=)?\s*(\d+)\b",
+
+        r"\bmake\s+it\s+(\d+)\b",
+
+        r"\bchange(?:\s+it)?\s+to\s+(\d+)\b",
+
+        r"\bset\s+(?:it\s+)?to\s+(\d+)\b",
+
+        r"\badd\s+(\d+)\s+(?:units?|items?|pieces?)\b",
+
+        r"\badd\s+(\d+)\s*x\b",
+
+        r"\b(\d+)\s+(?:units?|items?|pieces?)\b",
+
         ]
 
         for pattern in patterns:
@@ -808,12 +826,24 @@ class BuyerAgent:
                 )
 
                 if quantity > 0:
+
                     return quantity
 
+    # --------------------------------------------------------
+    # Word quantities
+    # --------------------------------------------------------
+
         word_patterns = [
-            r"make it\s+(one|two|three|four|five|six|seven|eight|nine|ten)",
-            r"change(?:\s+it)?\s+to\s+(one|two|three|four|five|six|seven|eight|nine|ten)",
-            r"set\s+(?:it\s+)?to\s+(one|two|three|four|five|six|seven|eight|nine|ten)",
+
+        r"\bmake\s+it\s+"
+        r"(one|two|three|four|five|six|seven|eight|nine|ten)\b",
+
+        r"\bchange(?:\s+it)?\s+to\s+"
+        r"(one|two|three|four|five|six|seven|eight|nine|ten)\b",
+
+        r"\bset\s+(?:it\s+)?to\s+"
+        r"(one|two|three|four|five|six|seven|eight|nine|ten)\b",
+
         ]
 
         for pattern in word_patterns:
@@ -893,10 +923,42 @@ class BuyerAgent:
             message,
         )
 
-        quantity = self._extract_quantity(
-            message,
-            default=1,
+        quantity = 1
+
+        quantity_match = re.search(
+            r"\b(?:quantity|qty)\s*(?:to|=)?\s*(\d+)\b",
+            message.lower(),
         )
+
+        if not quantity_match:
+
+            quantity_match = re.search(
+                r"\bmake\s+it\s+(\d+)\b",
+                message.lower(),
+            )
+
+        if not quantity_match:
+
+            quantity_match = re.search(
+                r"\bchange(?:\s+it)?\s+to\s+(\d+)\b",
+                message.lower(),
+            )
+
+        if not quantity_match:
+
+            quantity_match = re.search(
+                r"\badd\s+(\d+)\s+(?:units?|items?|pieces?)\b",
+                message.lower(),
+            )
+
+        if quantity_match:
+
+            quantity = int(
+                quantity_match.group(1)
+            )
+
+            if quantity <= 0:
+                quantity = 1
 
         try:
             result = add_product_to_cart(

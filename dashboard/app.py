@@ -1359,6 +1359,20 @@ def delete_api(
     return response.json()
 
 
+def fetch_cart_direct(
+    cart_id: str,
+) -> Dict[str, Any]:
+
+    response = requests.get(
+        f"{API_URL}/cart/{cart_id}",
+        timeout=60,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
 def create_buyer_cart() -> str:
 
     response = post_api(
@@ -4089,8 +4103,1103 @@ with tabs[2]:
                     )
 
 
-# ============================================================\n# TAB 4 — BUYER AI\n# ============================================================\n\nwith tabs[3]:\n\n    st.markdown(\n        '<div class="section-title">'\n        "🤖 MerchantOps Buyer AI"\n        "</div>",\n        unsafe_allow_html=True,\n    )\n\n    st.caption(\n        "A conversational shopping assistant powered by your "\n        "live merchant catalog."\n    )\n\n    if st.session_state.get("buyer_cart_id"):\n        st.caption("🛒 Shopping session active")\n    else:\n        st.caption("🛒 A shopping cart will be created automatically.")\n\n    st.markdown("### 💡 Try a shopping request")\n\n    qp1, qp2, qp3, qp4 = st.columns(4)\n\n    with qp1:\n        if st.button("🎒 Backpack under ₹2,000", use_container_width=True, key="buyer_quick_backpack"):\n            st.session_state["buyer_pending_prompt"] = "I need a laptop backpack under ₹2000 for office and travel"\n\n    with qp2:\n        if st.button("💻 Laptop accessories", use_container_width=True, key="buyer_quick_laptop"):\n            st.session_state["buyer_pending_prompt"] = "Show me laptop accessories"\n\n    with qp3:\n        if st.button("✈️ Travel products", use_container_width=True, key="buyer_quick_travel"):\n            st.session_state["buyer_pending_prompt"] = "Show me products for travel"\n\n    with qp4:\n        if st.button("🔥 Best value", use_container_width=True, key="buyer_quick_value"):\n            st.session_state["buyer_pending_prompt"] = "What is the best value product available right now?"\n\n    st.divider()\n\n    for message in st.session_state["buyer_messages"]:\n        role = message.get("role", "assistant")\n        if role not in {"user", "assistant"}:\n            role = "assistant"\n        with st.chat_message(role):\n            st.markdown(message.get("content", ""))\n\n    pending_prompt = st.session_state.pop("buyer_pending_prompt", "")\n    user_message = st.chat_input("Ask me what you want to buy...", key="buyer_chat_input")\n\n    if not user_message:\n        user_message = pending_prompt\n\n    if user_message:\n        user_message = str(user_message).strip()\n\n        if user_message:\n            st.session_state["buyer_messages"].append({"role": "user", "content": user_message})\n\n            try:\n                if not st.session_state.get("buyer_cart_id"):\n                    st.session_state["buyer_cart_id"] = create_buyer_cart()\n\n                with st.spinner("🤖 Buyer AI is thinking..."):\n                    buyer_response = post_api(\n                        "/buyer/chat",\n                        {\n                            "message": user_message,\n                            "session_id": st.session_state["buyer_session_id"],\n                            "cart_id": st.session_state["buyer_cart_id"],\n                        },\n                    )\n\n                returned_cart_id = buyer_response.get("cart_id")\n                if returned_cart_id:\n                    st.session_state["buyer_cart_id"] = str(returned_cart_id)\n\n                returned_cart = buyer_response.get("cart")\n                if returned_cart is not None:\n                    st.session_state["buyer_current_cart"] = returned_cart\n\n                intent = buyer_response.get("intent", "UNKNOWN")\n                response_text = str(buyer_response.get("message", "I couldn't find a suitable product right now."))\n                products = buyer_response.get("products", []) or []\n                filters = buyer_response.get("filters", {}) or {}\n\n                st.session_state["buyer_last_response"] = buyer_response\n                st.session_state["buyer_messages"].append({"role": "assistant", "content": response_text})\n\n                st.markdown("### 🤖 Buyer AI Response")\n                st.success(response_text)\n\n                r1, r2 = st.columns(2)\n                with r1:\n                    st.metric("Detected Intent", str(intent))\n                with r2:\n                    st.metric("Matches", len(products))\n\n                if filters:\n                    st.markdown("#### 🎯 Understood Requirements")\n                    rows = []\n                    for key, value in filters.items():\n                        if isinstance(value, list):\n                            value = ", ".join(map(str, value))\n                        rows.append({"Requirement": str(key), "Value": str(value)})\n                    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)\n\n                if products:\n                    st.markdown("### 🛍️ Recommended Products")\n                    for index, product in enumerate(products[:5]):\n                        product_id = str(product.get("product_id", ""))\n                        product_name = str(product.get("name", "Product"))\n                        price = safe_float(product.get("price", 0))\n                        stock = safe_int(product.get("stock", 0))\n                        category = str(product.get("category", ""))\n                        description = str(product.get("description", ""))\n\n                        with st.container(border=True):\n                            p1, p2, p3 = st.columns([3, 1, 1])\n                            with p1:\n                                st.markdown(f"#### {product_name}")\n                                st.caption(f"{product_id} • {category}")\n                            with p2:\n                                st.metric("Price", format_inr(price))\n                            with p3:\n                                st.metric("Stock", stock)\n\n                            if description:\n                                st.write(description)\n\n                            features = product.get("features", []) or []\n                            if features:\n                                st.caption(" • ".join(map(str, features[:4])))\n\n                            a1, a2 = st.columns(2)\n                            with a1:\n                                if st.button("🔍 View Details", use_container_width=True, key=f"buyer_details_{product_id}_{index}"):\n                                    detail = post_api(\n                                        "/buyer/chat",\n                                        {\n                                            "message": f"Tell me more about {product_name}",\n                                            "session_id": st.session_state["buyer_session_id"],\n                                            "cart_id": st.session_state["buyer_cart_id"],\n                                        },\n                                    )\n                                    st.info(detail.get("message", "No additional details available."))\n\n                            with a2:\n                                if st.button("➕ Add to Cart", use_container_width=True, type="primary", key=f"buyer_add_{product_id}_{index}"):\n                                    add_response = post_api(\n                                        "/buyer/chat",\n                                        {\n                                            "message": f"Add {product_name}",\n                                            "session_id": st.session_state["buyer_session_id"],\n                                            "cart_id": st.session_state["buyer_cart_id"],\n                                        },\n                                    )\n                                    add_cart_id = add_response.get("cart_id")\n                                    if add_cart_id:\n                                        st.session_state["buyer_cart_id"] = str(add_cart_id)\n                                    add_cart = add_response.get("cart")\n                                    if add_cart is not None:\n                                        st.session_state["buyer_current_cart"] = add_cart\n                                    st.success(add_response.get("message", f"{product_name} added to your cart."))\n\n                elif intent == "PRODUCT_SEARCH":\n                    st.warning("No matching in-stock products were returned by Buyer AI.")\n\n            except Exception as exc:\n                st.error("Unable to reach Buyer AI.")\n                st.code(str(exc))\n\n    current_cart = st.session_state.get("buyer_current_cart")\n    if current_cart is not None:\n        st.divider()\n        st.markdown("### 🛒 Your Cart")\n        items = current_cart.get("items", []) or []\n\n        if items:\n            for item in items:\n                label = f"{safe_int(item.get('quantity', 0))} × {item.get('product_name', 'Product')}"\n                if item.get("variant_name"):\n                    label += f" ({item.get('variant_name')})"\n                st.write(f"**{label}** — {format_inr(item.get('line_total', 0))}")\n\n            c1, c2, c3 = st.columns(3)\n            with c1:\n                st.metric("Subtotal", format_inr(current_cart.get("subtotal", 0)))\n            with c2:\n                st.metric("Discount", format_inr(current_cart.get("discount", 0)))\n            with c3:\n                st.metric("Total", format_inr(current_cart.get("total", 0)))\n        else:\n            st.info("Your cart is empty.")\n\n    st.divider()\n\n    if st.button("🆕 Start New Shopping Session", use_container_width=True, key="buyer_new_session"):\n        st.session_state["buyer_session_id"] = f"buyer_{uuid.uuid4().hex[:12]}"\n        st.session_state["buyer_cart_id"] = None\n        st.session_state["buyer_messages"] = []\n        st.session_state["buyer_current_cart"] = None\n        st.session_state["buyer_last_response"] = None\n        st.session_state["buyer_selected_product"] = None\n        st.rerun()\n\n\n# ============================================================\n# TAB 4 — PAYMENTS\n# ============================================================\n# ============================================================
+# ============================================================
+#  TAB 4 — BUYER AI\# 
+# ============================================================
 
+with tabs[3]:
+
+    # ========================================================
+    # BUYER AI
+    # ========================================================
+
+    st.markdown(
+        '<div class="section-title">'
+        "🤖 MerchantOps Buyer AI"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.caption(
+        "A conversational shopping assistant powered by your "
+        "live merchant catalog."
+    )
+
+    # ========================================================
+    # SHOPPING SESSION
+    # ========================================================
+
+    if st.session_state.get("buyer_cart_id"):
+
+        st.caption(
+            "🛒 Shopping session active"
+        )
+
+    else:
+
+        st.caption(
+            "🛒 A shopping cart will be created automatically."
+        )
+
+    # ========================================================
+    # QUICK PROMPTS
+    # ========================================================
+
+    st.markdown(
+        "### 💡 Try a shopping request"
+    )
+
+    qp1, qp2, qp3, qp4 = st.columns(4)
+
+    with qp1:
+
+        if st.button(
+            "🎒 Backpack under ₹2,000",
+            use_container_width=True,
+            key="buyer_quick_backpack",
+        ):
+
+            st.session_state[
+                "buyer_pending_prompt"
+            ] = (
+                "I need a laptop backpack under ₹2000 "
+                "for office and travel"
+            )
+
+    with qp2:
+
+        if st.button(
+            "💻 Laptop accessories",
+            use_container_width=True,
+            key="buyer_quick_laptop",
+        ):
+
+            st.session_state[
+                "buyer_pending_prompt"
+            ] = (
+                "Show me laptop accessories"
+            )
+
+    with qp3:
+
+        if st.button(
+            "✈️ Travel products",
+            use_container_width=True,
+            key="buyer_quick_travel",
+        ):
+
+            st.session_state[
+                "buyer_pending_prompt"
+            ] = (
+                "Show me products for travel"
+            )
+
+    with qp4:
+
+        if st.button(
+            "🔥 Best value",
+            use_container_width=True,
+            key="buyer_quick_value",
+        ):
+
+            st.session_state[
+                "buyer_pending_prompt"
+            ] = (
+                "What is the best value product "
+                "available right now?"
+            )
+
+    st.divider()
+
+    # ========================================================
+    # CHAT HISTORY
+    # ========================================================
+
+    for message in st.session_state.get(
+        "buyer_messages",
+        [],
+    ):
+
+        role = message.get(
+            "role",
+            "assistant",
+        )
+
+        if role not in {
+            "user",
+            "assistant",
+        }:
+
+            role = "assistant"
+
+        content = str(
+            message.get(
+                "content",
+                "",
+            )
+        )
+
+        with st.chat_message(
+            role
+        ):
+
+            st.markdown(
+                content
+            )
+
+    # ========================================================
+    # INPUT
+    # ========================================================
+
+    pending_prompt = st.session_state.pop(
+        "buyer_pending_prompt",
+        "",
+    )
+
+    user_message = st.text_input(
+        "Ask me what you want to buy",
+        placeholder=(
+            "Example: Show me laptop backpacks"
+        ),
+        key="buyer_text_input",
+    )
+
+    send_button = st.button(
+        "🤖 Send to Buyer AI",
+        use_container_width=True,
+        type="primary",
+        key="buyer_send_message",
+    )
+
+    # A quick prompt automatically becomes the message.
+    if pending_prompt:
+
+        user_message = pending_prompt
+        send_button = True
+
+    # ========================================================
+    # PROCESS MESSAGE
+    # ========================================================
+
+    if send_button:
+
+        user_message = str(
+            user_message
+        ).strip()
+
+        if not user_message:
+
+            st.warning(
+                "Please enter a shopping request."
+            )
+
+        else:
+
+            st.session_state[
+                "buyer_messages"
+            ].append(
+                {
+                    "role": "user",
+                    "content": user_message,
+                }
+            )
+
+            try:
+
+                # ------------------------------------------------
+                # CREATE CART
+                # ------------------------------------------------
+
+                if not st.session_state.get(
+                    "buyer_cart_id"
+                ):
+
+                    st.session_state[
+                        "buyer_cart_id"
+                    ] = create_buyer_cart()
+
+                # ------------------------------------------------
+                # BUYER AI REQUEST
+                # ------------------------------------------------
+
+                with st.spinner(
+                    "🤖 Buyer AI is thinking..."
+                ):
+
+                    buyer_response = post_api(
+                        "/buyer/chat",
+                        {
+                            "message":
+                                user_message,
+
+                            "session_id":
+                                st.session_state[
+                                    "buyer_session_id"
+                                ],
+
+                            "cart_id":
+                                st.session_state[
+                                    "buyer_cart_id"
+                                ],
+                        },
+                    )
+
+                # ------------------------------------------------
+                # CART ID
+                # ------------------------------------------------
+
+                returned_cart_id = (
+                    buyer_response.get(
+                        "cart_id"
+                    )
+                )
+
+                if returned_cart_id:
+
+                    st.session_state[
+                        "buyer_cart_id"
+                    ] = str(
+                        returned_cart_id
+                    )
+
+                # ------------------------------------------------
+                # CART
+                # ------------------------------------------------
+
+                returned_cart = (
+                    buyer_response.get(
+                        "cart"
+                    )
+                )
+
+                if returned_cart is not None:
+
+                    st.session_state[
+                        "buyer_current_cart"
+                    ] = returned_cart
+
+                # ------------------------------------------------
+                # RESPONSE
+                # ------------------------------------------------
+
+                intent = buyer_response.get(
+                    "intent",
+                    "UNKNOWN",
+                )
+
+                response_text = str(
+                    buyer_response.get(
+                        "message",
+                        (
+                            "I couldn't find a suitable "
+                            "product right now."
+                        ),
+                    )
+                )
+
+                products = (
+                    buyer_response.get(
+                        "products",
+                        [],
+                    )
+                    or []
+                )
+                
+                st.session_state[
+                    "buyer_products"
+                ] = products
+
+                filters = (
+                    buyer_response.get(
+                        "filters",
+                        {},
+                    )
+                    or {}
+                )
+
+                st.session_state[
+                    "buyer_last_response"
+                ] = buyer_response
+
+                st.session_state[
+                    "buyer_messages"
+                ].append(
+                    {
+                        "role":
+                            "assistant",
+
+                        "content":
+                            response_text,
+                    }
+                )
+
+                # ------------------------------------------------
+                # RESPONSE DISPLAY
+                # ------------------------------------------------
+
+                st.markdown(
+                    "### 🤖 Buyer AI Response"
+                )
+
+                st.success(
+                    response_text
+                )
+
+                r1, r2 = st.columns(2)
+
+                with r1:
+
+                    st.metric(
+                        "Detected Intent",
+                        str(intent),
+                    )
+
+                with r2:
+
+                    st.metric(
+                        "Matches",
+                        len(products),
+                    )
+
+                # ------------------------------------------------
+                # FILTERS
+                # ------------------------------------------------
+
+                if filters:
+
+                    st.markdown(
+                        "#### 🎯 Understood Requirements"
+                    )
+
+                    rows = []
+
+                    for key, value in (
+                        filters.items()
+                    ):
+
+                        if isinstance(
+                            value,
+                            list,
+                        ):
+
+                            value = ", ".join(
+                                map(
+                                    str,
+                                    value,
+                                )
+                            )
+
+                        rows.append(
+                            {
+                                "Requirement":
+                                    str(key),
+
+                                "Value":
+                                    str(value),
+                            }
+                        )
+
+                    if rows:
+
+                        st.dataframe(
+                            pd.DataFrame(
+                                rows
+                            ),
+                            use_container_width=True,
+                            hide_index=True,
+                        )
+
+                # ------------------------------------------------
+                # PRODUCTS
+                # ------------------------------------------------
+
+               
+
+                    if (
+                                        not products
+                                        and
+                                        intent == "PRODUCT_SEARCH"
+                                        ):
+
+                                        st.warning(
+                                            "No matching in-stock products "
+                                            "were returned by Buyer AI."
+                                            )
+
+                                        st.warning(
+                                            "No matching in-stock products "
+                                            "were returned by Buyer AI."
+                                        )
+                                        
+            except Exception as exc:
+
+                                        st.error(
+                                            "Unable to reach Buyer AI."
+                                        )
+
+                                        st.code(
+                                            str(exc)
+                                        )
+                                        
+                                        
+# ========================================================
+# PERSISTED RECOMMENDED PRODUCTS
+# ========================================================
+
+saved_products = (
+    st.session_state.get(
+        "buyer_products",
+        [],
+    )
+    or []
+)
+
+if saved_products:
+
+    st.markdown(
+        "### 🛍️ Recommended Products"
+    )
+
+    for index, product in enumerate(
+        saved_products[:5]
+    ):
+
+        product_id = str(
+            product.get(
+                "product_id",
+                "",
+            )
+        )
+
+        product_name = str(
+            product.get(
+                "name",
+                "Product",
+            )
+        )
+
+        price = safe_float(
+            product.get(
+                "price",
+                0,
+            )
+        )
+
+        stock = safe_int(
+            product.get(
+                "stock",
+                0,
+            )
+        )
+
+        category = str(
+            product.get(
+                "category",
+                "",
+            )
+        )
+
+        description = str(
+            product.get(
+                "description",
+                "",
+            )
+        )
+
+        with st.container(
+            border=True
+        ):
+
+            # ====================================================
+            # PRODUCT INFORMATION
+            # ====================================================
+
+            p1, p2, p3 = st.columns(
+                [3, 1, 1]
+            )
+
+            with p1:
+
+                st.markdown(
+                    f"#### {product_name}"
+                )
+
+                st.caption(
+                    f"{product_id} • {category}"
+                )
+
+            with p2:
+
+                st.metric(
+                    "Price",
+                    format_inr(
+                        price
+                    ),
+                )
+
+            with p3:
+
+                st.metric(
+                    "Stock",
+                    stock,
+                )
+
+            if description:
+
+                st.write(
+                    description
+                )
+
+            features = (
+                product.get(
+                    "features",
+                    [],
+                )
+                or []
+            )
+
+            if features:
+
+                st.caption(
+                    " • ".join(
+                        map(
+                            str,
+                            features[:4],
+                        )
+                    )
+                )
+
+            # ====================================================
+            # ACTION BUTTONS
+            # ====================================================
+
+            a1, a2 = st.columns(2)
+
+            # ----------------------------------------------------
+            # VIEW DETAILS
+            # ----------------------------------------------------
+
+            with a1:
+
+                if st.button(
+                    "🔍 View Details",
+                    use_container_width=True,
+                    key=(
+                        "buyer_saved_details_"
+                        f"{product_id}_"
+                        f"{index}"
+                    ),
+                ):
+
+                    try:
+
+                        detail_response = post_api(
+                            "/buyer/chat",
+                            {
+                                "message":
+                                    (
+                                        "Tell me more about "
+                                        f"{product_name}"
+                                    ),
+
+                                "session_id":
+                                    st.session_state[
+                                        "buyer_session_id"
+                                    ],
+
+                                "cart_id":
+                                    st.session_state[
+                                        "buyer_cart_id"
+                                    ],
+                            },
+                        )
+
+                        detail_text = str(
+                            detail_response.get(
+                                "message",
+                                "No additional details available.",
+                            )
+                        )
+
+                        detail_cart = (
+                            detail_response.get(
+                                "cart"
+                            )
+                        )
+
+                        if detail_cart is not None:
+
+                            st.session_state[
+                                "buyer_current_cart"
+                            ] = detail_cart
+
+                        st.info(
+                            detail_text
+                        )
+
+                    except Exception as exc:
+
+                        st.error(
+                            "Unable to load product details."
+                        )
+
+                        st.code(
+                            str(exc)
+                        )
+
+            # ----------------------------------------------------
+            # ADD TO CART
+            # ----------------------------------------------------
+
+            with a2:
+
+                if st.button(
+                    "➕ Add to Cart",
+                    use_container_width=True,
+                    type="primary",
+                    key=(
+                        "buyer_saved_add_"
+                        f"{product_id}_"
+                        f"{index}"
+                    ),
+                ):
+
+                    try:
+
+                        # ------------------------------------------------
+                        # Send add-to-cart request
+                        # ------------------------------------------------
+
+                        add_response = post_api(
+    "/buyer/chat",
+    {
+        "message":
+            f"Add {product_id}",
+
+        "session_id":
+            st.session_state[
+                "buyer_session_id"
+            ],
+
+        "cart_id":
+            st.session_state[
+                "buyer_cart_id"
+            ],
+    },
+)
+
+                        # ------------------------------------------------
+                        # Update cart ID
+                        # ------------------------------------------------
+
+                        returned_cart_id = (
+                            add_response.get(
+                                "cart_id"
+                            )
+                        )
+
+                        if returned_cart_id:
+
+                            st.session_state[
+                                "buyer_cart_id"
+                            ] = str(
+                                returned_cart_id
+                            )
+
+                        # ------------------------------------------------
+                        # Update cart from Buyer AI response
+                        # ------------------------------------------------
+
+                        returned_cart = (
+                            add_response.get(
+                                "cart"
+                            )
+                        )
+
+                        if returned_cart is not None:
+
+                            st.session_state[
+                                "buyer_current_cart"
+                            ] = returned_cart
+
+                        # ------------------------------------------------
+                        # Fallback: fetch authoritative cart
+                        # ------------------------------------------------
+
+                        else:
+
+                            active_cart_id = (
+                                st.session_state.get(
+                                    "buyer_cart_id"
+                                )
+                            )
+
+                            if active_cart_id:
+
+                                try:
+
+                                    cart_response = fetch_cart_direct(
+    str(active_cart_id)
+)
+
+                                    api_cart = (
+                                        cart_response.get(
+                                            "cart"
+                                        )
+                                    )
+
+                                    if isinstance(
+                                        api_cart,
+                                        dict,
+                                    ):
+
+                                        st.session_state[
+                                            "buyer_current_cart"
+                                        ] = api_cart
+
+                                except Exception:
+
+                                    pass
+
+                        # ------------------------------------------------
+                        # Success message
+                        # ------------------------------------------------
+
+                        add_text = str(
+                            add_response.get(
+                                "message",
+                                (
+                                    f"{product_name} "
+                                    "added to your cart."
+                                ),
+                            )
+                        )
+
+                        st.session_state[
+                            "buyer_messages"
+                        ].append(
+                            {
+                                "role":
+                                    "assistant",
+
+                                "content":
+                                    add_text,
+                            }
+                        )
+
+                        st.success(
+                            add_text
+                        )
+
+                        # ------------------------------------------------
+                        # Refresh the complete Buyer AI tab
+                        # ------------------------------------------------
+
+                        st.rerun()
+
+                    except Exception as exc:
+
+                        st.error(
+                            "Unable to add product to cart."
+                        )
+
+                        st.code(
+                            str(exc)
+                        )
+    # ========================================================
+    # CURRENT CART
+    # ========================================================
+
+    current_cart = (
+        st.session_state.get(
+            "buyer_current_cart"
+        )
+        or {}
+    )
+
+    # Refresh from backend whenever a cart ID exists.
+    active_cart_id = (
+        st.session_state.get(
+            "buyer_cart_id"
+        )
+    )
+
+    if active_cart_id:
+
+        try:
+
+            cart_response = fetch_cart_direct(
+    str(active_cart_id)
+)
+
+            api_cart = (
+                cart_response.get(
+                    "cart"
+                )
+            )
+
+            if isinstance(
+                api_cart,
+                dict,
+            ):
+
+                current_cart = api_cart
+
+                st.session_state[
+                    "buyer_current_cart"
+                ] = api_cart
+
+        except Exception:
+
+            pass
+
+    st.divider()
+
+    st.markdown(
+        "### 🛒 Your Cart"
+    )
+
+    items = (
+        current_cart.get(
+            "items",
+            [],
+        )
+        or []
+    )
+
+    if items:
+
+        for item_index, item in enumerate(items):
+
+            quantity = safe_int(
+                item.get(
+                    "quantity",
+                    0,
+                )
+            )
+
+            item_name = str(
+                item.get(
+                    "product_name",
+                    "Product",
+                )
+            )
+
+            product_id = str(
+                item.get(
+                    "product_id",
+                    "",
+                )
+            )
+
+            variant_id = item.get(
+                "variant_id"
+            )
+
+            label = (
+                f"{quantity} × {item_name}"
+            )
+
+            if item.get("variant_name"):
+
+                label += (
+                    f" ({item.get('variant_name')})"
+                )
+
+            cart_col1, cart_col2 = st.columns(
+                [5, 1]
+            )
+
+            with cart_col1:
+
+                st.write(
+                    f"**{label}** — "
+                    f"{format_inr(item.get('line_total', 0))}"
+                )
+
+            with cart_col2:
+
+                with cart_col2:
+
+                    if st.button(
+                        "🗑️ Remove",
+                        use_container_width=True,
+                        key=(
+                            "buyer_remove_cart_"
+                            f"{product_id}_"
+                            f"{variant_id}_"
+                            f"{item_index}"
+                        ),
+                    ):
+
+                        try:
+
+                            active_cart_id = (
+                                st.session_state.get(
+                                    "buyer_cart_id"
+                                )
+                            )
+
+                            if not active_cart_id:
+
+                                st.error(
+                                    "No active shopping cart found."
+                                )
+
+                            else:
+
+                                remove_response = post_api(
+                                    "/buyer/chat",
+                                    {
+                                        "message":
+                                            f"Remove {product_id}",
+
+                                        "session_id":
+                                            st.session_state[
+                                                "buyer_session_id"
+                                            ],
+
+                                        "cart_id":
+                                            active_cart_id,
+                                    },
+                                )
+
+                                returned_cart_id = (
+                                    remove_response.get(
+                                        "cart_id"
+                                    )
+                                )
+
+                                if returned_cart_id:
+
+                                    st.session_state[
+                                        "buyer_cart_id"
+                                    ] = str(
+                                        returned_cart_id
+                                    )
+
+                                updated_cart = (
+                                    remove_response.get(
+                                        "cart"
+                                    )
+                                )
+
+                                if updated_cart is not None:
+
+                                    st.session_state[
+                                        "buyer_current_cart"
+                                    ] = updated_cart
+
+                                if remove_response.get(
+                                    "success",
+                                    False,
+                                ):
+
+                                    st.success(
+                                        remove_response.get(
+                                            "message",
+                                            f"{item_name} removed from your cart.",
+                                        )
+                                    )
+
+                                else:
+
+                                    st.error(
+                                        remove_response.get(
+                                            "message",
+                                            f"Unable to remove {item_name}.",
+                                        )
+                                    )
+
+                                st.rerun()
+
+                        except Exception as exc:
+
+                            st.error(
+                                "Unable to remove item from cart."
+                            )
+
+                            st.code(
+                                str(exc)
+                            )
+        # ====================================================
+        # CHECKOUT
+        # ====================================================
+
+        st.markdown(
+            "### 💳 Checkout"
+        )
+
+        checkout_api_mode = (
+            "production"
+            if "onrender.com" in API_URL
+            else "local"
+        )
+
+        checkout_url = (
+            f"{CHECKOUT_URL}"
+            f"?cart_id="
+            f"{st.session_state.get('buyer_cart_id', '')}"
+            f"&api="
+            f"{checkout_api_mode}"
+        )
+
+        st.link_button(
+            "💳 Proceed to Checkout",
+            checkout_url,
+            use_container_width=True,
+        )
+
+    else:
+
+        st.info(
+            "Your cart is empty. Add a product above to begin checkout."
+        )
+
+    # ========================================================
+    # NEW SHOPPING SESSION
+    # ========================================================
+
+    st.divider()
+
+    if st.button(
+        "🆕 Start New Shopping Session",
+        use_container_width=True,
+        key="buyer_new_session",
+    ):
+
+        st.session_state[
+            "buyer_session_id"
+        ] = (
+            f"buyer_{uuid.uuid4().hex[:12]}"
+        )
+
+        st.session_state[
+            "buyer_cart_id"
+        ] = None
+
+        st.session_state[
+            "buyer_messages"
+        ] = []
+
+        st.session_state[
+            "buyer_current_cart"
+        ] = None
+
+        st.session_state[
+            "buyer_last_response"
+        ] = None
+
+        st.session_state[
+            "buyer_selected_product"
+        ] = None
+
+        st.rerun()
+
+
+# ============================================================
+# TAB 4 — PAYMENTS
+# ============================================================
 with tabs[4]:
 
     try:
